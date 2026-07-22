@@ -122,7 +122,7 @@ Examples:
         """
     )
     parser.add_argument("-t", "--target", required=True, help="Target URL")
-    parser.add_argument("-o", "--output", default="vulnscan_report.html", help="Output report file (default: vulnscan_report.html)")
+    parser.add_argument("-o", "--output", default="reconstrike_report.html", help="Output report file (default: reconstrike_report.html)")
     parser.add_argument("--depth", type=int, default=3, help="Crawl depth (default: 3)")
     parser.add_argument("--timeout", type=int, default=10, help="Request timeout in seconds (default: 10)")
     parser.add_argument("--threads", type=int, default=10, help="Number of threads (default: 10)")
@@ -154,7 +154,7 @@ Examples:
                         default="MEDIUM", help="Minimum severity to report in CI mode (default: MEDIUM)")
     parser.add_argument("-q", "--quiet", action="store_true", help="Minimal output (findings only)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("--version", action="version", version=f"VulnScan v{VERSION}")
+    parser.add_argument("--version", action="version", version=f"ReconStrike v{VERSION}")
 
     return parser.parse_args()
 
