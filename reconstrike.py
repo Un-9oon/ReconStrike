@@ -283,6 +283,10 @@ class ProgressTracker:
 def main():
     args = parse_args()
 
+    original_stdout = sys.stdout
+    if args.json_output:
+        sys.stdout = sys.stderr
+
     if not args.quiet:
         print(BANNER)
 
@@ -436,7 +440,8 @@ def main():
     if args.json_output or args.json_file:
         json_data = _build_json_output(session, duration, diff_data, compliance_data)
         if args.json_output:
-            print(json.dumps(json_data, indent=2))
+            original_stdout.write(json.dumps(json_data, indent=2) + "\n")
+            original_stdout.flush()
         if args.json_file:
             with open(args.json_file, "w") as jf:
                 json.dump(json_data, jf, indent=2)
