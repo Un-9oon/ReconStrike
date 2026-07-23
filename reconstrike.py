@@ -16,6 +16,7 @@ from scanner.compliance import generate_compliance_report, print_compliance_summ
 from scanner.api_scanner import scan_api_endpoints
 from scanner.waf_detect import detect_waf
 from scanner.tech_stack import analyze_tech_stack, print_tech_stack
+from scanner.pdf_report import generate_pdf_report
 from scanner.modules import (
     headers, ssl_check, sqli, xss, csrf, directory, info_disclosure,
     auth, misconfig, lfi, cmd_injection, ssti, ssrf, xxe, idor,
@@ -99,6 +100,11 @@ SCAN_PROFILES = {
         "depth": 4,
         "description": "OWASP Top 10 coverage scan",
     },
+    "full": {
+        "modules": list(ALL_MODULES.keys()),
+        "depth": 7,
+        "description": "Maximum scan (all modules, depth 7, API scan, compliance, PDF report)",
+    },
 }
 
 
@@ -130,6 +136,7 @@ Examples:
     parser.add_argument("--exclude-modules", help="Comma-separated list of modules to exclude")
     parser.add_argument("--profile", choices=SCAN_PROFILES.keys(), help="Scan profile (overrides --modules and --depth)")
     parser.add_argument("--deep", action="store_true", help="Deep scan mode (shortcut for --profile deep)")
+    parser.add_argument("--full", action="store_true", help="Full scan: all modules, max depth, API scan, compliance, PDF report")
 
     parser.add_argument("--auth-url", help="Login page URL for authenticated scanning")
     parser.add_argument("-u", "--username", help="Username for authenticated scanning")
@@ -144,6 +151,7 @@ Examples:
     parser.add_argument("--no-ssl-verify", action="store_true", default=True, help="Skip SSL verification (default: true)")
     parser.add_argument("--user-agent", default="ReconStrike/3.0 (Security Audit)", help="Custom User-Agent")
 
+    parser.add_argument("--pdf", help="Generate professional PDF report (e.g., --pdf report.pdf)")
     parser.add_argument("--json", dest="json_output", action="store_true", help="Output results as JSON to stdout")
     parser.add_argument("--json-file", help="Save JSON results to file")
     parser.add_argument("--diff", action="store_true", help="Compare results with previous scan")
@@ -160,7 +168,11 @@ Examples:
 
 
 def _resolve_modules(args) -> list[str]:
-    if args.profile:
+    if args.full:
+        profile = SCAN_PROFILES["full"]
+        selected = profile["modules"]
+        depth_override = profile["depth"]
+    elif args.profile:
         profile = SCAN_PROFILES[args.profile]
         selected = profile["modules"]
         depth_override = profile["depth"]
@@ -286,6 +298,15 @@ def main():
     original_stdout = sys.stdout
     if args.json_output:
         sys.stdout = sys.stderr
+
+    if args.full:
+        args.api_scan = True
+        args.compliance = True
+        args.diff = True
+        if not args.pdf:
+            from urllib.parse import urlparse as _urlparse
+            domain = _urlparse(args.target).netloc.replace(":", "_") or "target"
+            args.pdf = f"reconstrike_{domain}_{time.strftime('%Y%m%d_%H%M%S')}.pdf"
 
     if not args.quiet:
         print(BANNER)
@@ -451,6 +472,13 @@ def main():
     report_path = generate_html_report(session, args.output, compliance_data)
     if not args.quiet:
         print(f"\n{Fore.GREEN}[+] HTML report saved to: {report_path}{Style.RESET_ALL}")
+
+    if args.pdf:
+        pdf_path = generate_pdf_report(session, args.pdf, compliance_data)
+        if not args.quiet:
+            print(f"{Fore.GREEN}[+] PDF report saved to: {pdf_path}{Style.RESET_ALL}")
+
+    if not args.quiet:
         print(f"{Fore.CYAN}[*] Scan completed in {duration:.1f} seconds{Style.RESET_ALL}\n")
 
     if args.ci:
