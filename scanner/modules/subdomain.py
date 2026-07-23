@@ -103,15 +103,38 @@ def run(session: ScanSession) -> None:
         session.add_finding(Finding(
             title="Sensitive Subdomains Discovered",
             severity=Severity.MEDIUM,
-            description=f"Found {len(interesting)} potentially sensitive subdomains that may expose "
-                        "internal services, development environments, or admin interfaces.",
+            description=(
+                f"Found {len(interesting)} potentially sensitive subdomains that may expose "
+                f"internal services, development environments, admin interfaces, or databases."
+            ),
             evidence=f"Subdomains: {interesting_list}",
-            remediation="Review exposed subdomains. Internal/dev/staging services should not be publicly resolvable. "
-                        "Use split-horizon DNS or restrict via firewall.",
+            remediation=(
+                "1. Internal/dev/staging services should not be publicly resolvable.\n"
+                "2. Use split-horizon DNS for internal services.\n"
+                "3. Restrict access via firewall or VPN.\n"
+                "4. Remove DNS records for decommissioned services."
+            ),
             url=session.config.target,
             module="subdomain",
             cwe="CWE-200",
             confirmed=True,
+            location=f"DNS records for {base_domain}",
+            curl_command=f"dig +short {interesting[0][0]}" if interesting else "",
+            reproduction_steps=(
+                f"1. Run: dig +short {interesting[0][0]}\n"
+                f"2. The subdomain resolves to {interesting[0][1]}.\n"
+                f"3. Sensitive subdomains found: {', '.join(s[0] for s in interesting[:5])}"
+            ) if interesting else "",
+            developer_fix=(
+                f"1. Remove public DNS records for internal services:\n"
+                f"   Delete A/CNAME records for dev, staging, internal subdomains.\n"
+                f"2. Use split-horizon DNS:\n"
+                f"   Internal DNS returns private IPs; external DNS returns nothing.\n"
+                f"3. Firewall: Block external access to non-public subdomains.\n"
+                f"4. If services must be public, require VPN or SSO authentication."
+            ),
+            affected_component=f"DNS configuration for {base_domain}",
+            references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/03-Review_Webserver_Metafiles_for_Information_Leakage",
         ))
 
     all_list = "\n".join(f"  {fqdn} -> {ip}" for fqdn, ip, _ in found_subdomains)
@@ -125,4 +148,6 @@ def run(session: ScanSession) -> None:
         module="subdomain",
         cwe="CWE-200",
         confirmed=True,
+        location=f"DNS records for {base_domain}",
+        curl_command=f"for sub in www mail admin dev staging; do dig +short $sub.{base_domain}; done",
     ))

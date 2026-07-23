@@ -84,6 +84,7 @@ def run(session: ScanSession) -> None:
         header = _decode_jwt_part(parts[0])
         payload = _decode_jwt_part(parts[1])
         location = jwt_locations.get(token, "Unknown")
+        token_url = location.split(" @ ")[-1] if " @ " in location else session.config.target
 
         if not header or not payload:
             continue
@@ -93,13 +94,23 @@ def run(session: ScanSession) -> None:
             session.add_finding(Finding(
                 title="JWT Algorithm Set to 'none'",
                 severity=Severity.CRITICAL,
-                description="A JWT token uses algorithm 'none', meaning the signature is not verified.",
+                description="A JWT token uses algorithm 'none', meaning the signature is not verified. Any user can forge tokens with arbitrary claims.",
                 evidence=f"Location: {location}\nHeader: {json.dumps(header)}\nPayload: {json.dumps(payload)}",
                 remediation="Always enforce a strong algorithm (RS256, ES256). Reject 'none' algorithm.",
-                url=location.split(" @ ")[-1] if " @ " in location else session.config.target,
+                url=token_url,
                 module="jwt",
                 cwe="CWE-345",
                 confirmed=True,
+                location=f"JWT token found in {location}",
+                curl_command=f"curl -k -H 'Authorization: Bearer {token[:60]}...' '{token_url}'",
+                developer_fix=(
+                    "Configure your JWT library to reject 'none' algorithm:\n"
+                    "  Python (PyJWT): jwt.decode(token, key, algorithms=['RS256'])  # Explicit allowlist\n"
+                    "  Node.js: jwt.verify(token, key, { algorithms: ['RS256'] })\n"
+                    "  Java: .requireAlgorithm('RS256')"
+                ),
+                affected_component="JWT verification logic",
+                references="https://cwe.mitre.org/data/definitions/345.html",
             ))
 
         if alg in ("HS256", "HS384", "HS512"):
@@ -113,13 +124,40 @@ def run(session: ScanSession) -> None:
                             session.add_finding(Finding(
                                 title="JWT 'none' Algorithm Accepted",
                                 severity=Severity.CRITICAL,
-                                description="Server accepts JWT tokens with algorithm set to 'none', bypassing signature verification.",
-                                evidence=f"Original token accepted, then forged 'none' alg token also accepted.\nForged: {none_token[:80]}...",
-                                remediation="Reject 'none' algorithm in JWT verification. Use a whitelist of allowed algorithms.",
+                                description=(
+                                    "The server accepts JWT tokens with algorithm set to 'none', completely bypassing "
+                                    "signature verification. An attacker can forge any JWT claims (user ID, role, permissions) "
+                                    "without knowing the secret key."
+                                ),
+                                evidence=(
+                                    f"Original token accepted at: {url}\n"
+                                    f"Forged 'none' alg token also accepted.\n"
+                                    f"Forged token: {none_token[:80]}...\n"
+                                    f"Both responses were identical (HTTP 200)."
+                                ),
+                                remediation="Reject 'none' algorithm in JWT verification. Use an explicit algorithm whitelist.",
                                 url=url,
                                 module="jwt",
                                 cwe="CWE-345",
                                 confirmed=True,
+                                location=f"JWT verification at {url}",
+                                payload=none_token[:100],
+                                curl_command=f"curl -k -H 'Authorization: Bearer {none_token[:60]}...' '{url}'",
+                                reproduction_steps=(
+                                    f"1. Capture a valid JWT token from: {location}\n"
+                                    f"2. Decode the header, change 'alg' to 'none'.\n"
+                                    f"3. Remove the signature (third part).\n"
+                                    f"4. Send the forged token to: {url}\n"
+                                    f"5. The server accepts it as valid."
+                                ),
+                                developer_fix=(
+                                    "Specify allowed algorithms explicitly:\n"
+                                    "  Python: jwt.decode(token, secret, algorithms=['HS256'])\n"
+                                    "  Node.js: jwt.verify(token, secret, { algorithms: ['HS256'] })\n"
+                                    "  Never use jwt.decode() without algorithm validation."
+                                ),
+                                affected_component="JWT token verification",
+                                references="https://portswigger.net/web-security/jwt",
                             ))
                             break
 
@@ -130,13 +168,40 @@ def run(session: ScanSession) -> None:
                         session.add_finding(Finding(
                             title=f"JWT Signed with Weak Secret: '{secret}'",
                             severity=Severity.CRITICAL,
-                            description=f"JWT token is signed with guessable secret '{secret}'.",
-                            evidence=f"Secret: {secret}\nLocation: {location}\nPayload: {json.dumps(payload)}",
+                            description=(
+                                f"The JWT token is signed with the easily guessable secret '{secret}'. "
+                                f"An attacker can forge tokens with arbitrary claims (user ID, admin role) "
+                                f"using this known secret."
+                            ),
+                            evidence=(
+                                f"Secret Found: {secret}\n"
+                                f"Location: {location}\n"
+                                f"Algorithm: {alg}\n"
+                                f"Payload: {json.dumps(payload)}"
+                            ),
                             remediation="Use a strong, randomly generated secret (256+ bits). Rotate secrets regularly.",
-                            url=location.split(" @ ")[-1] if " @ " in location else session.config.target,
+                            url=token_url,
                             module="jwt",
                             cwe="CWE-321",
                             confirmed=True,
+                            location=f"JWT token in {location}",
+                            payload=f"Secret: {secret}",
+                            reproduction_steps=(
+                                f"1. Extract JWT from: {location}\n"
+                                f"2. The token uses {alg} algorithm.\n"
+                                f"3. Sign a forged payload with secret '{secret}'.\n"
+                                f"4. The signature matches, confirming the weak secret.\n"
+                                f"5. Use this to forge tokens with admin privileges."
+                            ),
+                            developer_fix=(
+                                f"Replace the weak secret with a strong random key:\n"
+                                f"  Python: import secrets; JWT_SECRET = secrets.token_hex(32)\n"
+                                f"  Store in environment variable, not in code:\n"
+                                f"    JWT_SECRET = os.environ['JWT_SECRET']\n"
+                                f"  Or use asymmetric keys (RS256) instead of shared secrets."
+                            ),
+                            affected_component="JWT signing configuration",
+                            references="https://portswigger.net/web-security/jwt",
                         ))
                         break
 
@@ -147,14 +212,24 @@ def run(session: ScanSession) -> None:
                 session.add_finding(Finding(
                     title="JWT Contains Sensitive Data",
                     severity=Severity.MEDIUM,
-                    description=f"JWT payload contains sensitive fields: {', '.join(found_sensitive)}. "
-                                "JWT payloads are base64-encoded, not encrypted.",
+                    description=(
+                        f"JWT payload contains sensitive fields: {', '.join(found_sensitive)}. "
+                        f"JWT payloads are only base64-encoded, not encrypted - anyone can decode and read them."
+                    ),
                     evidence=f"Sensitive fields: {found_sensitive}\nLocation: {location}",
                     remediation="Don't store sensitive data in JWT payloads. Use encrypted JWTs (JWE) if needed.",
-                    url=location.split(" @ ")[-1] if " @ " in location else session.config.target,
+                    url=token_url,
                     module="jwt",
                     cwe="CWE-311",
                     confirmed=True,
+                    location=f"JWT payload in {location}",
+                    developer_fix=(
+                        "Remove sensitive fields from JWT payload. Store them server-side instead:\n"
+                        "  # Instead of putting password/secrets in JWT:\n"
+                        "  payload = {'user_id': user.id, 'role': user.role, 'exp': expiry}\n"
+                        "  # Fetch sensitive data server-side using user_id"
+                    ),
+                    references="https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html",
                 ))
 
             exp = payload.get("exp")
@@ -164,23 +239,28 @@ def run(session: ScanSession) -> None:
                     session.add_finding(Finding(
                         title="JWT Has Excessive Expiration",
                         severity=Severity.LOW,
-                        description=f"JWT token has expiration more than 30 days from now.",
-                        evidence=f"Expiration: {exp} (>30 days)\nLocation: {location}",
+                        description=f"JWT token has expiration more than 30 days from now. Long-lived tokens increase the window for token theft and abuse.",
+                        evidence=f"Expiration timestamp: {exp} (>30 days)\nLocation: {location}",
                         remediation="Use short-lived tokens (15-60 minutes) with refresh token rotation.",
-                        url=location.split(" @ ")[-1] if " @ " in location else session.config.target,
+                        url=token_url,
                         module="jwt",
                         cwe="CWE-613",
                         confirmed=True,
+                        location=f"JWT 'exp' claim in {location}",
+                        developer_fix="Set short expiration: payload['exp'] = datetime.utcnow() + timedelta(minutes=15). Use refresh tokens for longer sessions.",
                     ))
             elif "exp" not in payload:
                 session.add_finding(Finding(
                     title="JWT Missing Expiration Claim",
                     severity=Severity.MEDIUM,
-                    description="JWT token has no 'exp' claim, meaning it never expires.",
-                    evidence=f"No 'exp' field in payload.\nLocation: {location}",
+                    description="JWT token has no 'exp' claim, meaning it never expires. A stolen token grants permanent access.",
+                    evidence=f"No 'exp' field in payload.\nLocation: {location}\nPayload keys: {list(payload.keys())}",
                     remediation="Always include an 'exp' claim in JWT tokens.",
-                    url=location.split(" @ ")[-1] if " @ " in location else session.config.target,
+                    url=token_url,
                     module="jwt",
                     cwe="CWE-613",
                     confirmed=True,
+                    location=f"JWT payload in {location}",
+                    developer_fix="Add expiration to JWT payload:\n  payload['exp'] = datetime.utcnow() + timedelta(hours=1)\n  payload['iat'] = datetime.utcnow()",
+                    references="https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html",
                 ))

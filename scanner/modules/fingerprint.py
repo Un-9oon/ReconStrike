@@ -1,5 +1,4 @@
 import re
-import hashlib
 
 from scanner.core import Finding, Severity, ScanSession
 
@@ -82,6 +81,7 @@ def run(session: ScanSession) -> None:
         return
 
     detected_tech = set()
+    curl_cmd = f"curl -kI '{session.config.target}'"
 
     for header_name, patterns in TECH_SIGNATURES["headers"].items():
         header_val = resp.headers.get(header_name, "")
@@ -116,15 +116,32 @@ def run(session: ScanSession) -> None:
             session.add_finding(Finding(
                 title="Technology Stack Fingerprinted (Versions Exposed)",
                 severity=Severity.LOW,
-                description=f"Server reveals technology versions: {', '.join(version_exposed)}. "
-                            "Version information helps attackers find known vulnerabilities.",
+                description=(
+                    f"Server reveals technology versions: {', '.join(version_exposed)}. "
+                    f"Version information helps attackers identify known CVEs for specific software versions."
+                ),
                 evidence=f"Technologies detected: {', '.join(tech_list)}",
-                remediation="Suppress version numbers in Server, X-Powered-By headers. "
-                            "Remove generator meta tags.",
+                remediation="Suppress version numbers in Server, X-Powered-By headers. Remove generator meta tags.",
                 url=session.config.target,
                 module="fingerprint",
                 cwe="CWE-200",
                 confirmed=True,
+                location="HTTP response headers and HTML body",
+                curl_command=curl_cmd,
+                reproduction_steps=(
+                    f"1. Send: {curl_cmd}\n"
+                    f"2. Observe Server/X-Powered-By headers revealing versions.\n"
+                    f"3. Technologies found: {', '.join(tech_list)}"
+                ),
+                developer_fix=(
+                    "Apache: ServerTokens Prod; ServerSignature Off\n"
+                    "Nginx: server_tokens off;\n"
+                    "PHP: expose_php = Off in php.ini\n"
+                    "Express: app.disable('x-powered-by')\n"
+                    "Remove <meta name=\"generator\"> tags from HTML."
+                ),
+                affected_component="Server headers / HTML meta tags",
+                references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server",
             ))
         else:
             session.add_finding(Finding(
@@ -137,6 +154,8 @@ def run(session: ScanSession) -> None:
                 module="fingerprint",
                 cwe="CWE-200",
                 confirmed=True,
+                location="HTTP response headers and HTML body",
+                curl_command=curl_cmd,
             ))
 
     detected_waf = []
@@ -169,14 +188,15 @@ def run(session: ScanSession) -> None:
         session.add_finding(Finding(
             title=f"WAF/CDN Detected: {waf_list}",
             severity=Severity.INFO,
-            description=f"Web Application Firewall or CDN detected: {waf_list}. "
-                        "Some scan results may be affected by WAF filtering.",
+            description=f"Web Application Firewall or CDN detected: {waf_list}. Some scan results may be affected by WAF filtering.",
             evidence=f"Detected via header/cookie analysis: {waf_list}",
-            remediation="This is informational. WAF provides defense-in-depth but should not be the only protection.",
+            remediation="Informational. WAF provides defense-in-depth but should not be the only protection.",
             url=session.config.target,
             module="fingerprint",
             cwe="CWE-200",
             confirmed=True,
+            location="HTTP response headers and cookies",
+            curl_command=curl_cmd,
         ))
     else:
         print("  [*] No WAF/CDN detected.")
@@ -202,11 +222,15 @@ def _check_version_vulns(session: ScanSession, tech_set: set):
                 session.add_finding(Finding(
                     title=f"End-of-Life Software: {tech}",
                     severity=Severity.HIGH,
-                    description=f"{message} Running EOL software means no security patches for new vulnerabilities.",
+                    description=f"{message} Running EOL software means no security patches for newly discovered vulnerabilities.",
                     evidence=f"Detected: {tech}",
-                    remediation=f"Upgrade to a supported version.",
+                    remediation=f"Upgrade to a currently supported version.",
                     url=session.config.target,
                     module="fingerprint",
                     cwe="CWE-1104",
                     confirmed=True,
+                    location="Server technology version",
+                    developer_fix=f"Upgrade {tech.split()[0]} to the latest supported version.\nCheck https://endoflife.date/ for EOL schedules.",
+                    affected_component=f"{tech} installation",
+                    references="https://endoflife.date/",
                 ))

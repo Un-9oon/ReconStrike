@@ -5,42 +5,20 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from scanner.core import Finding, Severity, ScanSession
 
 COMMON_PORTS = {
-    21: ("FTP", Severity.MEDIUM),
-    22: ("SSH", Severity.INFO),
-    23: ("Telnet", Severity.HIGH),
-    25: ("SMTP", Severity.LOW),
-    53: ("DNS", Severity.INFO),
-    80: ("HTTP", Severity.INFO),
-    110: ("POP3", Severity.LOW),
-    111: ("RPCBind", Severity.MEDIUM),
-    135: ("MSRPC", Severity.MEDIUM),
-    139: ("NetBIOS", Severity.MEDIUM),
-    143: ("IMAP", Severity.LOW),
-    443: ("HTTPS", Severity.INFO),
-    445: ("SMB", Severity.HIGH),
-    993: ("IMAPS", Severity.INFO),
-    995: ("POP3S", Severity.INFO),
-    1433: ("MSSQL", Severity.HIGH),
-    1521: ("Oracle", Severity.HIGH),
-    2049: ("NFS", Severity.HIGH),
-    2375: ("Docker API (unencrypted)", Severity.CRITICAL),
-    2376: ("Docker API", Severity.MEDIUM),
-    3306: ("MySQL", Severity.HIGH),
-    3389: ("RDP", Severity.MEDIUM),
-    5432: ("PostgreSQL", Severity.HIGH),
-    5672: ("RabbitMQ", Severity.MEDIUM),
-    5900: ("VNC", Severity.HIGH),
-    6379: ("Redis", Severity.HIGH),
-    6443: ("Kubernetes API", Severity.HIGH),
-    8080: ("HTTP Proxy/Alt", Severity.LOW),
-    8443: ("HTTPS Alt", Severity.INFO),
-    8888: ("HTTP Alt", Severity.LOW),
-    9090: ("Management Console", Severity.MEDIUM),
-    9200: ("Elasticsearch", Severity.HIGH),
-    9300: ("Elasticsearch Transport", Severity.HIGH),
-    11211: ("Memcached", Severity.HIGH),
-    27017: ("MongoDB", Severity.HIGH),
-    27018: ("MongoDB", Severity.HIGH),
+    21: ("FTP", Severity.MEDIUM), 22: ("SSH", Severity.INFO), 23: ("Telnet", Severity.HIGH),
+    25: ("SMTP", Severity.LOW), 53: ("DNS", Severity.INFO), 80: ("HTTP", Severity.INFO),
+    110: ("POP3", Severity.LOW), 111: ("RPCBind", Severity.MEDIUM), 135: ("MSRPC", Severity.MEDIUM),
+    139: ("NetBIOS", Severity.MEDIUM), 143: ("IMAP", Severity.LOW), 443: ("HTTPS", Severity.INFO),
+    445: ("SMB", Severity.HIGH), 993: ("IMAPS", Severity.INFO), 995: ("POP3S", Severity.INFO),
+    1433: ("MSSQL", Severity.HIGH), 1521: ("Oracle", Severity.HIGH), 2049: ("NFS", Severity.HIGH),
+    2375: ("Docker API (unencrypted)", Severity.CRITICAL), 2376: ("Docker API", Severity.MEDIUM),
+    3306: ("MySQL", Severity.HIGH), 3389: ("RDP", Severity.MEDIUM), 5432: ("PostgreSQL", Severity.HIGH),
+    5672: ("RabbitMQ", Severity.MEDIUM), 5900: ("VNC", Severity.HIGH), 6379: ("Redis", Severity.HIGH),
+    6443: ("Kubernetes API", Severity.HIGH), 8080: ("HTTP Proxy/Alt", Severity.LOW),
+    8443: ("HTTPS Alt", Severity.INFO), 8888: ("HTTP Alt", Severity.LOW),
+    9090: ("Management Console", Severity.MEDIUM), 9200: ("Elasticsearch", Severity.HIGH),
+    9300: ("Elasticsearch Transport", Severity.HIGH), 11211: ("Memcached", Severity.HIGH),
+    27017: ("MongoDB", Severity.HIGH), 27018: ("MongoDB", Severity.HIGH),
 }
 
 DANGEROUS_SERVICES = {
@@ -87,14 +65,11 @@ def run(session: ScanSession) -> None:
         print(f"  [!] Cannot resolve hostname: {hostname}")
         return
 
-    print(f"  [*] Scanning {hostname} ({ip}) — {len(COMMON_PORTS)} ports...")
+    print(f"  [*] Scanning {hostname} ({ip}) -- {len(COMMON_PORTS)} ports...")
 
     open_ports = []
     with ThreadPoolExecutor(max_workers=50) as executor:
-        futures = {
-            executor.submit(_scan_port, ip, port): port
-            for port in COMMON_PORTS
-        }
+        futures = {executor.submit(_scan_port, ip, port): port for port in COMMON_PORTS}
         for future in as_completed(futures):
             port, is_open, banner = future.result()
             if is_open:
@@ -117,43 +92,65 @@ def run(session: ScanSession) -> None:
             continue
 
         is_dangerous = service in DANGEROUS_SERVICES
-
-        if is_dangerous:
-            severity = Severity.HIGH
-            if service == "Docker API (unencrypted)":
-                severity = Severity.CRITICAL
-        else:
-            severity = default_severity
+        severity = Severity.CRITICAL if service == "Docker API (unencrypted)" else (Severity.HIGH if is_dangerous else default_severity)
 
         evidence = f"Port: {port}\nService: {service}\nHost: {hostname} ({ip})"
         if banner:
             evidence += f"\nBanner: {banner[:200]}"
 
+        nmap_cmd = f"nmap -sV -p {port} {hostname}"
+
         if is_dangerous:
             session.add_finding(Finding(
                 title=f"Exposed Service: {service} (port {port})",
                 severity=severity,
-                description=f"{service} service is exposed on port {port}. "
-                            f"This service should not be publicly accessible.",
+                description=(
+                    f"{service} service is exposed on port {port}. This service should not be publicly accessible "
+                    f"as it may allow unauthorized data access, command execution, or lateral movement."
+                ),
                 evidence=evidence,
-                remediation=f"Restrict access to {service} (port {port}) using firewall rules. "
-                            f"Only allow connections from trusted IPs. Use VPN for remote access.",
+                remediation=(
+                    f"1. Restrict access to {service} (port {port}) using firewall rules.\n"
+                    f"2. Only allow connections from trusted IPs.\n"
+                    f"3. Use VPN or SSH tunneling for remote access.\n"
+                    f"4. Enable authentication if not already configured."
+                ),
                 url=session.config.target,
                 module="portscan",
                 cwe="CWE-284",
                 confirmed=True,
+                location=f"Port {port} ({service}) on {hostname} ({ip})",
+                curl_command=nmap_cmd,
+                reproduction_steps=(
+                    f"1. Run: nmap -p {port} {hostname}\n"
+                    f"2. Port {port} is open and running {service}.\n"
+                    f"3. Run: {nmap_cmd} for version detection."
+                ),
+                developer_fix=(
+                    f"1. Firewall rule to block external access:\n"
+                    f"   iptables -A INPUT -p tcp --dport {port} -j DROP\n"
+                    f"   # Or allow only specific IPs:\n"
+                    f"   iptables -A INPUT -p tcp --dport {port} -s TRUSTED_IP -j ACCEPT\n\n"
+                    f"2. Cloud security groups: Remove port {port} from public-facing rules.\n"
+                    f"3. Bind to localhost: Configure {service} to listen on 127.0.0.1 only."
+                ),
+                affected_component=f"{service} service on port {port}",
+                references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information",
             ))
         elif severity != Severity.INFO:
             session.add_finding(Finding(
                 title=f"Open Port: {service} ({port})",
                 severity=severity,
-                description=f"{service} is accessible on port {port}.",
+                description=f"{service} is accessible on port {port}. Review if this service needs to be publicly exposed.",
                 evidence=evidence,
-                remediation=f"Review if port {port} ({service}) needs to be publicly accessible.",
+                remediation=f"Review if port {port} ({service}) needs to be publicly accessible. Apply firewall rules.",
                 url=session.config.target,
                 module="portscan",
                 cwe="CWE-284",
                 confirmed=True,
+                location=f"Port {port} ({service}) on {hostname} ({ip})",
+                curl_command=nmap_cmd,
+                developer_fix=f"If not needed publicly:\n  iptables -A INPUT -p tcp --dport {port} -j DROP",
             ))
 
     port_list = ", ".join(f"{p}({s})" for p, s, _ in open_ports)

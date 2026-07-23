@@ -58,14 +58,61 @@ def run(session: ScanSession) -> None:
             continue
 
         input_names = [i.get("name", "") for i in form["inputs"] if i.get("name")]
+        source_url = form.get("source_url", form["action"])
+        data_str = "&".join(f"{n}=test" for n in input_names)
+        curl_cmd = f"curl -k -X POST '{form['action']}' -d '{data_str}'"
+
         session.add_finding(Finding(
             title="Missing CSRF Protection on State-Changing Form",
             severity=Severity.MEDIUM,
-            description=f"A POST form at {form['action']} performs state-changing operations without CSRF token protection.",
-            evidence=f"Action: {form['action']}\nMethod: POST\nFields: {', '.join(input_names)}\nNo CSRF token or SameSite cookie found.",
-            remediation="Add a CSRF token to all state-changing forms. Use SameSite=Strict cookies as defense-in-depth.",
-            url=form.get("source_url", form["action"]),
+            description=(
+                f"A POST form at {form['action']} performs state-changing operations (detected keywords: "
+                f"{', '.join(ind for ind in STATE_CHANGING_INDICATORS if ind in (urlparse(form['action']).path.lower() + ' ' + ' '.join(input_names).lower()))}) "
+                f"without CSRF token protection. An attacker can craft a malicious page that submits this form "
+                f"on behalf of an authenticated user without their knowledge."
+            ),
+            evidence=(
+                f"Form Action: {form['action']}\n"
+                f"Method: POST\n"
+                f"Fields: {', '.join(input_names)}\n"
+                f"CSRF Token: Not found\n"
+                f"SameSite Cookie: Not set"
+            ),
+            remediation=(
+                "1. Add a CSRF token to all state-changing forms.\n"
+                "2. Validate the token server-side on form submission.\n"
+                "3. Set SameSite=Strict or SameSite=Lax on session cookies as defense-in-depth.\n"
+                "4. Verify the Origin/Referer header matches your domain."
+            ),
+            url=source_url,
             module="csrf",
             cwe="CWE-352",
             confirmed=True,
+            location=f"POST form at {form['action']}",
+            request_method="POST",
+            curl_command=curl_cmd,
+            reproduction_steps=(
+                f"1. Navigate to page containing the form: {source_url}\n"
+                f"2. Inspect the form that submits to: {form['action']}\n"
+                f"3. Note that no CSRF token (hidden input) is present in the form.\n"
+                f"4. Create an HTML page with an auto-submitting form targeting {form['action']}:\n"
+                f"   <form action=\"{form['action']}\" method=\"POST\">\n"
+                + "".join(f"     <input type=\"hidden\" name=\"{n}\" value=\"attacker_value\">\n" for n in input_names)
+                + f"   </form><script>document.forms[0].submit()</script>\n"
+                f"5. When an authenticated user visits the attacker's page, the form auto-submits."
+            ),
+            developer_fix=(
+                f"File: The template rendering the form at {form['action']} and its server-side handler.\n\n"
+                f"1. Add a hidden CSRF token field to the form:\n"
+                f"   <input type=\"hidden\" name=\"csrf_token\" value=\"{{{{ csrf_token }}}}\">\n\n"
+                f"2. Validate the token server-side:\n"
+                f"   Django: Uses {{% csrf_token %}} template tag automatically\n"
+                f"   Flask: from flask_wtf.csrf import CSRFProtect; csrf = CSRFProtect(app)\n"
+                f"   Express: Use csurf middleware\n"
+                f"   PHP: Generate token with bin2hex(random_bytes(32)), store in session, validate on POST\n\n"
+                f"3. Set SameSite on session cookies:\n"
+                f"   Set-Cookie: session=value; SameSite=Strict; Secure; HttpOnly"
+            ),
+            affected_component=f"POST {form['action']}",
+            references="https://owasp.org/www-community/attacks/csrf | https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
         ))

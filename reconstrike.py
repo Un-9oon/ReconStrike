@@ -20,7 +20,7 @@ from scanner.pdf_report import generate_pdf_report
 from scanner.modules import (
     headers, ssl_check, sqli, xss, csrf, directory, info_disclosure,
     auth, misconfig, lfi, cmd_injection, ssti, ssrf, xxe, idor,
-    jwt, file_upload, portscan, fingerprint, subdomain,
+    jwt, file_upload, portscan, fingerprint, subdomain, cors,
 )
 
 colorama_init()
@@ -35,7 +35,7 @@ BANNER = f"""
 {Fore.RED}██║  ██║███████╗╚██████╗╚██████╔╝██║ ╚████║{Fore.YELLOW}███████║   ██║   ██║  ██║██║██║  ██╗███████╗
 {Fore.RED}╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝{Fore.YELLOW}╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝{Style.RESET_ALL}
 {Fore.CYAN}    Advanced Web & Network Vulnerability Assessment Framework v{VERSION}{Style.RESET_ALL}
-{Fore.WHITE}    21 Scan Modules | OWASP Top 10 + PCI DSS | Zero False Positives{Style.RESET_ALL}
+{Fore.WHITE}    22 Scan Modules | OWASP Top 10 + PCI DSS | Zero False Positives{Style.RESET_ALL}
 {Fore.WHITE}    WAF Detection | API Security | Compliance Mapping | Scan Diffing{Style.RESET_ALL}
 {Fore.YELLOW}    ────────────────────────────────────────────────────────────────{Style.RESET_ALL}
 """
@@ -61,6 +61,7 @@ ALL_MODULES = {
     "info": ("Information Disclosure", info_disclosure),
     "auth": ("Authentication Security", auth),
     "misconfig": ("Security Misconfigurations", misconfig),
+    "cors": ("CORS Misconfiguration", cors),
 }
 
 SCAN_PROFILES = {
@@ -96,7 +97,7 @@ SCAN_PROFILES = {
     },
     "owasp": {
         "modules": ["sqli", "xss", "ssti", "csrf", "ssrf", "xxe", "lfi", "cmdi", "idor",
-                     "jwt", "auth", "misconfig", "headers", "ssl", "fingerprint", "directory", "info"],
+                     "jwt", "auth", "misconfig", "cors", "headers", "ssl", "fingerprint", "directory", "info"],
         "depth": 4,
         "description": "OWASP Top 10 coverage scan",
     },
