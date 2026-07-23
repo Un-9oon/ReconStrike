@@ -227,6 +227,17 @@ def _build_json_output(session: ScanSession, duration: float, diff_data=None, co
                 "module": f.module,
                 "cwe": f.cwe,
                 "confirmed": f.confirmed,
+                "location": f.location,
+                "parameter": f.parameter,
+                "payload": f.payload,
+                "request_method": f.request_method,
+                "request_body": f.request_body,
+                "response_status": f.response_status,
+                "curl_command": f.curl_command,
+                "reproduction_steps": f.reproduction_steps,
+                "developer_fix": f.developer_fix,
+                "affected_component": f.affected_component,
+                "references": f.references,
             }
             for f in sorted(session.findings, key=lambda x: x.severity.score, reverse=True)
         ],

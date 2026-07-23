@@ -33,6 +33,15 @@ def save_scan_results(session: ScanSession):
                 "module": f.module,
                 "cwe": f.cwe,
                 "confirmed": f.confirmed,
+                "location": f.location,
+                "parameter": f.parameter,
+                "payload": f.payload,
+                "curl_command": f.curl_command,
+                "reproduction_steps": f.reproduction_steps,
+                "developer_fix": f.developer_fix,
+                "affected_component": f.affected_component,
+                "request_method": f.request_method,
+                "response_status": f.response_status,
             }
             for f in session.findings
         ],

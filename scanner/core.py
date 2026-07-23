@@ -43,6 +43,19 @@ class Finding:
     module: str
     cwe: str = ""
     confirmed: bool = False
+    location: str = ""
+    parameter: str = ""
+    payload: str = ""
+    request_method: str = ""
+    request_headers: str = ""
+    request_body: str = ""
+    response_status: int = 0
+    response_headers: str = ""
+    curl_command: str = ""
+    reproduction_steps: str = ""
+    developer_fix: str = ""
+    affected_component: str = ""
+    references: str = ""
 
     @property
     def confidence(self):

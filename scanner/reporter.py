@@ -34,6 +34,47 @@ def generate_html_report(session: ScanSession, output_path: str, compliance_data
             if f.confirmed else
             '<span style="background:#d97706;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;">Tentative</span>'
         )
+
+        location_html = ""
+        if f.location:
+            location_html = f'<span>Location: {html.escape(f.location)}</span>'
+        param_html = ""
+        if f.parameter:
+            param_html = f'<span>Parameter: <code style="background:#334155;padding:2px 6px;border-radius:3px;">{html.escape(f.parameter)}</code></span>'
+
+        extra_sections = ""
+
+        if f.location or f.parameter or f.payload:
+            extra_sections += '<h4>Vulnerability Details</h4><div style="background:#0f172a;padding:12px;border-radius:6px;margin-bottom:8px;">'
+            if f.location:
+                extra_sections += f'<div style="margin-bottom:4px;"><strong style="color:#94a3b8;">Location:</strong> <span style="color:#a5f3fc;">{html.escape(f.location)}</span></div>'
+            if f.parameter:
+                extra_sections += f'<div style="margin-bottom:4px;"><strong style="color:#94a3b8;">Parameter:</strong> <code style="background:#334155;padding:2px 6px;border-radius:3px;color:#fbbf24;">{html.escape(f.parameter)}</code></div>'
+            if f.payload:
+                extra_sections += f'<div style="margin-bottom:4px;"><strong style="color:#94a3b8;">Payload:</strong> <code style="background:#334155;padding:2px 6px;border-radius:3px;color:#f87171;">{html.escape(f.payload)}</code></div>'
+            if f.request_method:
+                extra_sections += f'<div style="margin-bottom:4px;"><strong style="color:#94a3b8;">Method:</strong> {html.escape(f.request_method)}</div>'
+            if f.response_status:
+                extra_sections += f'<div><strong style="color:#94a3b8;">Response Status:</strong> {f.response_status}</div>'
+            extra_sections += '</div>'
+
+        if f.curl_command:
+            extra_sections += f'<h4>Reproduce with cURL</h4><pre style="background:#0f172a;color:#4ade80;padding:12px;border-radius:6px;font-size:12px;white-space:pre-wrap;word-break:break-all;">{html.escape(f.curl_command)}</pre>'
+
+        if f.reproduction_steps:
+            extra_sections += f'<h4>Reproduction Steps</h4><pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;font-size:12px;white-space:pre-wrap;">{html.escape(f.reproduction_steps)}</pre>'
+
+        if f.developer_fix:
+            extra_sections += f'<h4>Developer Fix Guide</h4><pre style="background:#0c1a0c;border:1px solid #16a34a33;color:#86efac;padding:12px;border-radius:6px;font-size:12px;white-space:pre-wrap;">{html.escape(f.developer_fix)}</pre>'
+
+        if f.affected_component:
+            extra_sections += f'<div style="margin-top:8px;"><strong style="color:#94a3b8;">Affected Component:</strong> <span style="color:#fbbf24;">{html.escape(f.affected_component)}</span></div>'
+
+        if f.references:
+            refs = f.references.split("|")
+            ref_links = " ".join(f'<a href="{html.escape(r.strip())}" target="_blank" style="color:#60a5fa;margin-right:12px;">{html.escape(r.strip())}</a>' for r in refs if r.strip())
+            extra_sections += f'<div style="margin-top:8px;"><strong style="color:#94a3b8;">References:</strong> {ref_links}</div>'
+
         findings_html += f"""
         <div class="finding" style="border-left:4px solid {color};">
             <div class="finding-header">
@@ -45,12 +86,15 @@ def generate_html_report(session: ScanSession, output_path: str, compliance_data
                 <span>Module: {html.escape(f.module)}</span>
                 {f'<span>CWE: <a href="https://cwe.mitre.org/data/definitions/{html.escape(f.cwe.replace("CWE-", ""))}.html" target="_blank">{html.escape(f.cwe)}</a></span>' if f.cwe else ''}
                 <span>URL: <a href="{html.escape(f.url)}">{html.escape(f.url[:80])}</a></span>
+                {location_html}
+                {param_html}
             </div>
             <div class="finding-body">
                 <h4>Description</h4>
                 <p>{html.escape(f.description)}</p>
                 <h4>Evidence</h4>
                 <pre>{html.escape(f.evidence)}</pre>
+                {extra_sections}
                 <h4>Remediation</h4>
                 <p>{html.escape(f.remediation)}</p>
             </div>

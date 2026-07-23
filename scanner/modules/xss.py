@@ -44,6 +44,16 @@ def _detect_context(body: str, marker: str) -> str:
     return "html_body"
 
 
+def _build_curl(method, url, headers=None, data=None):
+    cmd = f"curl -k -X {method} '{url}'"
+    if headers:
+        for k, v in headers.items():
+            cmd += f" -H '{k}: {v}'"
+    if data:
+        cmd += f" -d '{data}'"
+    return cmd
+
+
 def _check_url_params(session: ScanSession, url: str):
     parsed = urlparse(url)
     params = parse_qs(parsed.query, keep_blank_values=True)
@@ -80,16 +90,63 @@ def _check_url_params(session: ScanSession, url: str):
             if expected in resp2.text:
                 if _is_in_safe_context(resp2.text, expected):
                     continue
+
+                idx = resp2.text.find(expected)
+                snippet_start = max(0, idx - 40)
+                snippet_end = min(len(resp2.text), idx + len(expected) + 40)
+                snippet = resp2.text[snippet_start:snippet_end].replace('\n', ' ')
+
                 session.add_finding(Finding(
                     title="Reflected XSS via URL Parameter",
                     severity=Severity.HIGH,
-                    description=f"Parameter '{param}' reflects HTML/script tags without encoding in {context} context.",
-                    evidence=f"Parameter: {param}\nPayload: {payload}\nReflected: {expected}\nContext: {context}",
-                    remediation="Encode all user-controlled output. Use Content-Security-Policy.",
+                    description=(
+                        f"The URL parameter '{param}' is reflected in the HTTP response without "
+                        f"proper output encoding. The reflection occurs in a '{context}' context, "
+                        f"allowing injection of arbitrary HTML/JavaScript that executes in the "
+                        f"victim's browser when they visit the crafted URL."
+                    ),
+                    evidence=(
+                        f"Parameter: {param}\n"
+                        f"Injection Context: {context}\n"
+                        f"Payload Sent: {payload}\n"
+                        f"Reflected As: {expected}\n"
+                        f"Response Snippet: ...{snippet}...\n"
+                        f"Response Status: {resp2.status_code}"
+                    ),
+                    remediation=(
+                        "1. Apply context-aware output encoding on all user input before rendering in HTML.\n"
+                        "2. Use framework auto-escaping (Jinja2 autoescape, React JSX, Django templates).\n"
+                        "3. Implement Content-Security-Policy header to restrict inline script execution.\n"
+                        "4. Use HttpOnly flag on session cookies to limit impact of XSS."
+                    ),
                     url=url,
                     module="xss",
                     cwe="CWE-79",
                     confirmed=True,
+                    location=f"URL parameter '{param}' in query string",
+                    parameter=param,
+                    payload=payload,
+                    request_method="GET",
+                    response_status=resp2.status_code,
+                    curl_command=_build_curl("GET", test_url2),
+                    reproduction_steps=(
+                        f"1. Open the target URL: {url}\n"
+                        f"2. Modify the '{param}' parameter value to: {payload}\n"
+                        f"3. Send the request (full URL: {test_url2})\n"
+                        f"4. Observe the payload is reflected unencoded in the {context} context of the response body.\n"
+                        f"5. The injected HTML/script executes in the browser."
+                    ),
+                    developer_fix=(
+                        f"File: The server-side code that handles the '{parsed.path}' route and renders the "
+                        f"'{param}' parameter value into HTML output.\n"
+                        f"Fix: Replace direct output of the parameter with HTML-encoded output.\n"
+                        f"Example: Instead of outputting '{param}' raw, use your framework's escaping:\n"
+                        f"  - Python/Jinja2: {{{{ {param} | e }}}}\n"
+                        f"  - PHP: htmlspecialchars(${param}, ENT_QUOTES, 'UTF-8')\n"
+                        f"  - Node/Express: Use a template engine with auto-escaping enabled"
+                    ),
+                    affected_component=f"Route handler for {parsed.path}",
+                    references="https://owasp.org/www-community/attacks/xss/ | https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
                 ))
                 return
 
@@ -136,16 +193,62 @@ def _check_forms(session: ScanSession, form: dict):
             if resp2 and expected in resp2.text:
                 if _is_in_safe_context(resp2.text, expected):
                     continue
+
+                method = form["method"].upper()
+                data_str = "&".join(f"{k}={v}" for k, v in post_data.items())
+                source_url = form.get("source_url", form["action"])
+
                 session.add_finding(Finding(
                     title="Reflected XSS via Form Input",
                     severity=Severity.HIGH,
-                    description=f"Form field '{name}' at {form['action']} reflects input without sanitization.",
-                    evidence=f"Field: {name}\nPayload: {payload}\nReflected: {expected}",
-                    remediation="Encode all user-controlled output in HTML responses.",
-                    url=form.get("source_url", form["action"]),
+                    description=(
+                        f"The form field '{name}' submitted to {form['action']} reflects "
+                        f"user input in the response without proper sanitization. An attacker "
+                        f"can craft a malicious form submission that injects arbitrary JavaScript "
+                        f"into the page, potentially stealing session cookies or performing "
+                        f"actions on behalf of authenticated users."
+                    ),
+                    evidence=(
+                        f"Form Action: {form['action']}\n"
+                        f"Form Method: {method}\n"
+                        f"Vulnerable Field: {name}\n"
+                        f"Field Type: {inp.get('type', 'text')}\n"
+                        f"Payload Sent: {payload}\n"
+                        f"Reflected As: {expected}\n"
+                        f"Response Status: {resp2.status_code}"
+                    ),
+                    remediation=(
+                        "1. HTML-encode all form input values before rendering in responses.\n"
+                        "2. Implement Content-Security-Policy to block inline scripts.\n"
+                        "3. Validate and sanitize input on the server side.\n"
+                        "4. Use framework auto-escaping features."
+                    ),
+                    url=source_url,
                     module="xss",
                     cwe="CWE-79",
                     confirmed=True,
+                    location=f"Form field '{name}' (type: {inp.get('type', 'text')}) at {form['action']}",
+                    parameter=name,
+                    payload=payload,
+                    request_method=method,
+                    request_body=data_str,
+                    response_status=resp2.status_code,
+                    curl_command=_build_curl(method, form["action"], data=data_str) if method == "POST" else _build_curl("GET", f"{form['action']}?{data_str}"),
+                    reproduction_steps=(
+                        f"1. Navigate to the page containing the form: {source_url}\n"
+                        f"2. Locate the form that submits to: {form['action']}\n"
+                        f"3. Enter the following payload in the '{name}' field: {payload}\n"
+                        f"4. Submit the form.\n"
+                        f"5. Observe the payload is reflected unencoded in the response body."
+                    ),
+                    developer_fix=(
+                        f"File: The server-side handler for {method} {form['action']} that processes "
+                        f"the '{name}' form field and includes it in the response HTML.\n"
+                        f"Fix: Apply output encoding when rendering the '{name}' value.\n"
+                        f"Also: Add Content-Security-Policy header to prevent inline script execution."
+                    ),
+                    affected_component=f"{method} {form['action']} - form field '{name}'",
+                    references="https://owasp.org/www-community/attacks/xss/",
                 ))
                 return
 

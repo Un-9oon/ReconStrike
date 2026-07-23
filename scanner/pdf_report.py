@@ -314,7 +314,32 @@ def generate_pdf_report(session: ScanSession, output_path: str, compliance_data:
         pdf.multi_cell(0, 4.5, f.description)
         pdf.ln(2)
 
+        # Vulnerability details
+        if f.location or f.parameter or f.payload:
+            if pdf.get_y() > 250:
+                pdf.add_page()
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(71, 85, 105)
+            pdf.cell(0, 5, "VULNERABILITY DETAILS", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", "", 9)
+            pdf.set_text_color(51, 65, 85)
+            if f.location:
+                pdf._key_value("Location", f.location[:90])
+            if f.parameter:
+                pdf._key_value("Parameter", f.parameter)
+            if f.payload:
+                pdf._key_value("Payload", f.payload[:90])
+            if f.request_method:
+                pdf._key_value("Method", f.request_method)
+            if f.response_status:
+                pdf._key_value("Status", str(f.response_status))
+            if f.affected_component:
+                pdf._key_value("Component", f.affected_component[:90])
+            pdf.ln(2)
+
         # Evidence
+        if pdf.get_y() > 250:
+            pdf.add_page()
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_text_color(71, 85, 105)
         pdf.cell(0, 5, "EVIDENCE", new_x="LMARGIN", new_y="NEXT")
@@ -329,6 +354,51 @@ def generate_pdf_report(session: ScanSession, output_path: str, compliance_data:
             pdf.cell(0, 4, "  " + line[:100], fill=True, new_x="LMARGIN", new_y="NEXT")
         pdf.ln(2)
 
+        # cURL command
+        if f.curl_command:
+            if pdf.get_y() > 250:
+                pdf.add_page()
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(71, 85, 105)
+            pdf.cell(0, 5, "REPRODUCE WITH CURL", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_fill_color(240, 253, 244)
+            pdf.set_font("Courier", "", 7)
+            pdf.set_text_color(22, 101, 52)
+            for line in f.curl_command.split("\n")[:3]:
+                pdf.cell(0, 4, "  " + line[:110], fill=True, new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+
+        # Reproduction steps
+        if f.reproduction_steps:
+            if pdf.get_y() > 240:
+                pdf.add_page()
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(71, 85, 105)
+            pdf.cell(0, 5, "REPRODUCTION STEPS", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(51, 65, 85)
+            for line in f.reproduction_steps.split("\n")[:8]:
+                if pdf.get_y() > 270:
+                    pdf.add_page()
+                pdf.cell(0, 4, "  " + line[:100], new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+
+        # Developer fix
+        if f.developer_fix:
+            if pdf.get_y() > 230:
+                pdf.add_page()
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(34, 139, 34)
+            pdf.cell(0, 5, "DEVELOPER FIX GUIDE", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_fill_color(240, 253, 244)
+            pdf.set_font("Courier", "", 7)
+            pdf.set_text_color(22, 101, 52)
+            for line in f.developer_fix.split("\n")[:12]:
+                if pdf.get_y() > 270:
+                    pdf.add_page()
+                pdf.cell(0, 4, "  " + line[:110], fill=True, new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+
         # Remediation
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_text_color(71, 85, 105)
@@ -336,6 +406,14 @@ def generate_pdf_report(session: ScanSession, output_path: str, compliance_data:
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(34, 139, 34)
         pdf.multi_cell(0, 4.5, f.remediation)
+
+        # References
+        if f.references:
+            pdf.ln(1)
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(100, 100, 200)
+            pdf.cell(0, 4, "Refs: " + f.references[:120], new_x="LMARGIN", new_y="NEXT")
+
         pdf.ln(4)
 
     # ── Compliance Section ──
