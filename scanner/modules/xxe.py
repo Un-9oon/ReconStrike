@@ -165,6 +165,7 @@ def _check_xml_endpoints(session: ScanSession):
                         "https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html | "
                         "https://cwe.mitre.org/data/definitions/611.html"
                     ),
+                    detection_method="Submitted XML payloads with external entity declarations (<!ENTITY> referencing /etc/passwd or internal URLs) via POST requests. Confirmed when file contents or internal data appear in the response, proving the XML parser resolves external entities.",
                 ))
                 return
 
@@ -272,6 +273,7 @@ def _check_content_type_switch(session: ScanSession):
                         "https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html | "
                         "https://cwe.mitre.org/data/definitions/611.html"
                     ),
+                    detection_method="Submitted XML payloads with external entity declarations (<!ENTITY> referencing /etc/passwd or internal URLs) via POST requests. Confirmed when file contents or internal data appear in the response, proving the XML parser resolves external entities.",
                 ))
                 return
 
@@ -386,5 +388,6 @@ def _check_file_upload_xxe(session: ScanSession):
                             "https://cwe.mitre.org/data/definitions/611.html | "
                             "https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload"
                         ),
+                        detection_method="Submitted XML payloads with external entity declarations (<!ENTITY> referencing /etc/passwd or internal URLs) via POST requests. Confirmed when file contents or internal data appear in the response, proving the XML parser resolves external entities.",
                     ))
                     return

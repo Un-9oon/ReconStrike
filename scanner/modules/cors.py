@@ -68,6 +68,7 @@ def run(session: ScanSession) -> None:
                     ),
                     affected_component="CORS configuration",
                     references="https://owasp.org/www-community/attacks/CORS_OriginHeaderScrutiny",
+                    detection_method="Sent requests with crafted Origin headers (evil.com, attacker.com, null) and inspected Access-Control-Allow-Origin and Access-Control-Allow-Credentials response headers. Misconfigurations like wildcard or origin reflection with credentials are flagged.",
                 ))
                 return
 
@@ -112,6 +113,7 @@ def run(session: ScanSession) -> None:
                         ),
                         affected_component="CORS configuration / middleware",
                         references="https://portswigger.net/web-security/cors",
+                        detection_method="Sent requests with crafted Origin headers (evil.com, attacker.com, null) and inspected Access-Control-Allow-Origin and Access-Control-Allow-Credentials response headers. Misconfigurations like wildcard or origin reflection with credentials are flagged.",
                     ))
                     return
                 else:
@@ -137,6 +139,7 @@ def run(session: ScanSession) -> None:
                         curl_command=curl_cmd,
                         developer_fix="Validate Origin against a strict whitelist of trusted domains before reflecting it.",
                         affected_component="CORS configuration",
+                        detection_method="Sent requests with crafted Origin headers (evil.com, attacker.com, null) and inspected Access-Control-Allow-Origin and Access-Control-Allow-Credentials response headers. Misconfigurations like wildcard or origin reflection with credentials are flagged.",
                     ))
                     return
 
@@ -169,5 +172,6 @@ def run(session: ScanSession) -> None:
                     developer_fix="Remove 'null' from your CORS origin whitelist. Never trust the null origin.",
                     affected_component="CORS configuration",
                     references="https://portswigger.net/web-security/cors",
+                    detection_method="Sent requests with crafted Origin headers (evil.com, attacker.com, null) and inspected Access-Control-Allow-Origin and Access-Control-Allow-Credentials response headers. Misconfigurations like wildcard or origin reflection with credentials are flagged.",
                 ))
                 return

@@ -111,6 +111,7 @@ def run(session: ScanSession) -> None:
                 ),
                 affected_component="JWT verification logic",
                 references="https://cwe.mitre.org/data/definitions/345.html",
+                detection_method="Extracted JWT tokens from responses/cookies and decoded without verification. Tested for: \'none\' algorithm acceptance, weak HMAC secrets via dictionary attack, sensitive data in payload, and missing/excessive expiration claims.",
             ))
 
         if alg in ("HS256", "HS384", "HS512"):
@@ -158,6 +159,7 @@ def run(session: ScanSession) -> None:
                                 ),
                                 affected_component="JWT token verification",
                                 references="https://portswigger.net/web-security/jwt",
+                                detection_method="Extracted JWT tokens from responses/cookies and decoded without verification. Tested for: \'none\' algorithm acceptance, weak HMAC secrets via dictionary attack, sensitive data in payload, and missing/excessive expiration claims.",
                             ))
                             break
 
@@ -202,6 +204,7 @@ def run(session: ScanSession) -> None:
                             ),
                             affected_component="JWT signing configuration",
                             references="https://portswigger.net/web-security/jwt",
+                            detection_method="Extracted JWT tokens from responses/cookies and decoded without verification. Tested for: \'none\' algorithm acceptance, weak HMAC secrets via dictionary attack, sensitive data in payload, and missing/excessive expiration claims.",
                         ))
                         break
 
@@ -230,6 +233,7 @@ def run(session: ScanSession) -> None:
                         "  # Fetch sensitive data server-side using user_id"
                     ),
                     references="https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html",
+                    detection_method="Extracted JWT tokens from responses/cookies and decoded without verification. Tested for: \'none\' algorithm acceptance, weak HMAC secrets via dictionary attack, sensitive data in payload, and missing/excessive expiration claims.",
                 ))
 
             exp = payload.get("exp")
@@ -248,6 +252,7 @@ def run(session: ScanSession) -> None:
                         confirmed=True,
                         location=f"JWT 'exp' claim in {location}",
                         developer_fix="Set short expiration: payload['exp'] = datetime.utcnow() + timedelta(minutes=15). Use refresh tokens for longer sessions.",
+                        detection_method="Extracted JWT tokens from responses/cookies and decoded without verification. Tested for: \'none\' algorithm acceptance, weak HMAC secrets via dictionary attack, sensitive data in payload, and missing/excessive expiration claims.",
                     ))
             elif "exp" not in payload:
                 session.add_finding(Finding(
@@ -263,4 +268,5 @@ def run(session: ScanSession) -> None:
                     location=f"JWT payload in {location}",
                     developer_fix="Add expiration to JWT payload:\n  payload['exp'] = datetime.utcnow() + timedelta(hours=1)\n  payload['iat'] = datetime.utcnow()",
                     references="https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html",
+                    detection_method="Extracted JWT tokens from responses/cookies and decoded without verification. Tested for: \'none\' algorithm acceptance, weak HMAC secrets via dictionary attack, sensitive data in payload, and missing/excessive expiration claims.",
                 ))

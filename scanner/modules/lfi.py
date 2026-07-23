@@ -180,6 +180,7 @@ def _test_param(session: ScanSession, url: str, param: str, original: str):
                         " | https://cwe.mitre.org/data/definitions/98.html"
                         " | https://owasp.org/www-community/attacks/Path_Traversal"
                     ),
+                    detection_method="Injected directory traversal sequences (../, ....// , %2e%2e/) targeting /etc/passwd and win.ini into URL parameters. Validated by checking for structural markers (3+ colon-delimited lines for passwd) rather than simple regex, with baseline comparison.",
                 ))
                 return
 

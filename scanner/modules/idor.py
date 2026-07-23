@@ -128,6 +128,7 @@ def _check_param_idor(session: ScanSession, url: str, param: str, original: str)
             ),
             affected_component=f"Data access in route handler for {parsed.path}",
             references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/04-Testing_for_Insecure_Direct_Object_References",
+            detection_method="Modified numeric ID parameters in URLs (e.g., id=1 to id=2) and compared responses. If different valid data is returned for adjacent IDs without authorization checks, this confirms insecure direct object reference.",
         ))
     elif _contains_pii(resp.text):
         session.add_finding(Finding(
@@ -145,6 +146,7 @@ def _check_param_idor(session: ScanSession, url: str, param: str, original: str)
             curl_command=curl_test,
             developer_fix="Add authorization checks to verify the authenticated user owns the requested resource before returning data.",
             references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/04-Testing_for_Insecure_Direct_Object_References",
+            detection_method="Modified numeric ID parameters in URLs (e.g., id=1 to id=2) and compared responses. If different valid data is returned for adjacent IDs without authorization checks, this confirms insecure direct object reference.",
         ))
 
 
@@ -188,6 +190,7 @@ def _check_path_idor(session: ScanSession, url: str):
                 ),
                 developer_fix="Add server-side authorization to verify the requesting user owns the resource at the given path ID.",
                 references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/04-Testing_for_Insecure_Direct_Object_References",
+                detection_method="Modified numeric ID parameters in URLs (e.g., id=1 to id=2) and compared responses. If different valid data is returned for adjacent IDs without authorization checks, this confirms insecure direct object reference.",
             ))
             return
 

@@ -142,6 +142,7 @@ def run(session: ScanSession) -> None:
                 ),
                 affected_component=info["dev_fix"],
                 references=f"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/{header_name}",
+                detection_method="Inspected HTTP response headers for missing or misconfigured security headers (X-Frame-Options, Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, etc.) by comparing against OWASP recommended values.",
             ))
 
     csp = headers.get("Content-Security-Policy", "")
@@ -165,6 +166,7 @@ def run(session: ScanSession) -> None:
                     "2. Set header: Content-Security-Policy: script-src 'nonce-{random}'\n"
                     "3. Add nonce attribute to all inline scripts: <script nonce=\"{random}\">"
                 ),
+                detection_method="Inspected HTTP response headers for missing or misconfigured security headers (X-Frame-Options, Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, etc.) by comparing against OWASP recommended values.",
             ))
         if "unsafe-eval" in csp:
             session.add_finding(Finding(
@@ -180,6 +182,7 @@ def run(session: ScanSession) -> None:
                 location="Content-Security-Policy response header",
                 curl_command=curl_cmd,
                 developer_fix="Remove 'unsafe-eval' from your CSP directive. Refactor JavaScript to avoid eval(), new Function(), and setTimeout/setInterval with string arguments.",
+                detection_method="Inspected HTTP response headers for missing or misconfigured security headers (X-Frame-Options, Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, etc.) by comparing against OWASP recommended values.",
             ))
 
     for header_name, desc in DANGEROUS_HEADERS.items():
@@ -205,6 +208,7 @@ def run(session: ScanSession) -> None:
                     f"Express.js: app.disable('x-powered-by') or use helmet()"
                 ),
                 affected_component="Web server / application configuration",
+                detection_method="Inspected HTTP response headers for missing or misconfigured security headers (X-Frame-Options, Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, etc.) by comparing against OWASP recommended values.",
             ))
 
     for cookie in resp.cookies:
@@ -231,6 +235,7 @@ def run(session: ScanSession) -> None:
                     f"Express: res.cookie('{cookie.name}', value, {{ secure: true }})\n"
                     f"Django: SESSION_COOKIE_SECURE = True"
                 ),
+                detection_method="Inspected HTTP response headers for missing or misconfigured security headers (X-Frame-Options, Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, etc.) by comparing against OWASP recommended values.",
             ))
 
         if not cookie.has_nonstandard_attr("HttpOnly"):
@@ -251,6 +256,7 @@ def run(session: ScanSession) -> None:
                     f"Express: res.cookie('{cookie.name}', value, {{ httpOnly: true }})\n"
                     f"Django: SESSION_COOKIE_HTTPONLY = True"
                 ),
+                detection_method="Inspected HTTP response headers for missing or misconfigured security headers (X-Frame-Options, Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, etc.) by comparing against OWASP recommended values.",
             ))
 
         if not cookie.has_nonstandard_attr("SameSite"):
@@ -271,4 +277,5 @@ def run(session: ScanSession) -> None:
                     f"Express: res.cookie('{cookie.name}', value, {{ sameSite: 'strict' }})\n"
                     f"Django: SESSION_COOKIE_SAMESITE = 'Strict'"
                 ),
+                detection_method="Inspected HTTP response headers for missing or misconfigured security headers (X-Frame-Options, Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, etc.) by comparing against OWASP recommended values.",
             ))

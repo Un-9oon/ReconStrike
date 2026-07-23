@@ -228,6 +228,7 @@ def _test_param_url(session: ScanSession, url: str, param: str, original: str):
                         " | https://cwe.mitre.org/data/definitions/1336.html"
                         " | https://portswigger.net/research/server-side-template-injection"
                     ),
+                    detection_method="Injected template syntax expressions ({{7*7}}, ${7*7}, #{7*7}) for Jinja2, Mako, Freemarker, Twig, and other engines. Confirmed when the computed result (49) appears in the response but not in baseline — proving server-side template evaluation.",
                 ))
                 return
 
@@ -334,6 +335,7 @@ def _test_form(session: ScanSession, form: dict):
                             " | https://cwe.mitre.org/data/definitions/1336.html"
                             " | https://portswigger.net/research/server-side-template-injection"
                         ),
+                        detection_method="Injected template syntax expressions ({{7*7}}, ${7*7}, #{7*7}) for Jinja2, Mako, Freemarker, Twig, and other engines. Confirmed when the computed result (49) appears in the response but not in baseline — proving server-side template evaluation.",
                     ))
                     return
 

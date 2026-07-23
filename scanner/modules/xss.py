@@ -147,6 +147,7 @@ def _check_url_params(session: ScanSession, url: str):
                     ),
                     affected_component=f"Route handler for {parsed.path}",
                     references="https://owasp.org/www-community/attacks/xss/ | https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+                    detection_method="Injected XSS payloads (script tags, event handlers, SVG/IMG vectors) into URL parameters and form fields, then checked if the payload appeared unescaped in the response HTML. Baseline comparison eliminates pre-existing content matches.",
                 ))
                 return
 
@@ -249,6 +250,7 @@ def _check_forms(session: ScanSession, form: dict):
                     ),
                     affected_component=f"{method} {form['action']} - form field '{name}'",
                     references="https://owasp.org/www-community/attacks/xss/",
+                    detection_method="Injected XSS payloads (script tags, event handlers, SVG/IMG vectors) into URL parameters and form fields, then checked if the payload appeared unescaped in the response HTML. Baseline comparison eliminates pre-existing content matches.",
                 ))
                 return
 

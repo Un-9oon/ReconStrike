@@ -147,6 +147,7 @@ def run(session: ScanSession) -> None:
                         "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information | "
                         "https://cwe.mitre.org/data/definitions/548.html"
                     ),
+                    detection_method="Brute-forced common directory and file paths (admin panels, backup files, config files, version control directories) via HTTP requests. Uses soft-404 detection to filter custom error pages that return HTTP 200.",
                 ))
                 continue
 
@@ -232,6 +233,7 @@ def run(session: ScanSession) -> None:
                             "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information | "
                             "https://cwe.mitre.org/data/definitions/538.html"
                         ),
+                        detection_method="Brute-forced common directory and file paths (admin panels, backup files, config files, version control directories) via HTTP requests. Uses soft-404 detection to filter custom error pages that return HTTP 200.",
                     ))
                     continue
 
@@ -294,6 +296,7 @@ def run(session: ScanSession) -> None:
                         "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/05-Enumerate_Infrastructure_and_Application_Admin_Interfaces | "
                         "https://cwe.mitre.org/data/definitions/538.html"
                     ),
+                    detection_method="Brute-forced common directory and file paths (admin panels, backup files, config files, version control directories) via HTTP requests. Uses soft-404 detection to filter custom error pages that return HTTP 200.",
                 ))
                 continue
 
@@ -352,6 +355,7 @@ def run(session: ScanSession) -> None:
                         "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server | "
                         "https://cwe.mitre.org/data/definitions/200.html"
                     ),
+                    detection_method="Brute-forced common directory and file paths (admin panels, backup files, config files, version control directories) via HTTP requests. Uses soft-404 detection to filter custom error pages that return HTTP 200.",
                 ))
                 continue
 
@@ -416,6 +420,7 @@ def run(session: ScanSession) -> None:
                             "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/05-Enumerate_Infrastructure_and_Application_Admin_Interfaces | "
                             "https://cwe.mitre.org/data/definitions/200.html"
                         ),
+                        detection_method="Brute-forced common directory and file paths (admin panels, backup files, config files, version control directories) via HTTP requests. Uses soft-404 detection to filter custom error pages that return HTTP 200.",
                     ))
                     continue
 
@@ -477,6 +482,7 @@ def run(session: ScanSession) -> None:
                             "https://owasp.org/API-Security/editions/2023/en/0xa9-improper-inventory-management/ | "
                             "https://cwe.mitre.org/data/definitions/200.html"
                         ),
+                        detection_method="Brute-forced common directory and file paths (admin panels, backup files, config files, version control directories) via HTTP requests. Uses soft-404 detection to filter custom error pages that return HTTP 200.",
                     ))
 
             if path == "/robots.txt" and resp.status_code == 200:
@@ -540,6 +546,7 @@ def run(session: ScanSession) -> None:
                             "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/01-Conduct_Search_Engine_Discovery_Reconnaissance_for_Information_Leakage | "
                             "https://cwe.mitre.org/data/definitions/200.html"
                         ),
+                        detection_method="Brute-forced common directory and file paths (admin panels, backup files, config files, version control directories) via HTTP requests. Uses soft-404 detection to filter custom error pages that return HTTP 200.",
                     ))
 
         elif resp.status_code == 403:
@@ -598,4 +605,5 @@ def run(session: ScanSession) -> None:
                         "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information | "
                         "https://cwe.mitre.org/data/definitions/200.html"
                     ),
+                    detection_method="Brute-forced common directory and file paths (admin panels, backup files, config files, version control directories) via HTTP requests. Uses soft-404 detection to filter custom error pages that return HTTP 200.",
                 ))

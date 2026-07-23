@@ -40,6 +40,7 @@ def run(session: ScanSession) -> None:
             ),
             affected_component="Web server TLS configuration",
             references="https://letsencrypt.org/getting-started/",
+            detection_method="Performed TLS handshake analysis checking: protocol version (TLS 1.2+ required), certificate validity and expiration, hostname verification, and cipher suite strength. Uses Python\'s ssl module for direct socket-level inspection.",
         ))
         return
 
@@ -75,6 +76,7 @@ def run(session: ScanSession) -> None:
                         ),
                         affected_component="TLS protocol configuration",
                         references="https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html",
+                        detection_method="Performed TLS handshake analysis checking: protocol version (TLS 1.2+ required), certificate validity and expiration, hostname verification, and cipher suite strength. Uses Python\'s ssl module for direct socket-level inspection.",
                     ))
 
                 if cert:
@@ -98,6 +100,7 @@ def run(session: ScanSession) -> None:
                             curl_command=f"echo | {test_cmd} 2>/dev/null | openssl x509 -noout -dates",
                             developer_fix="Renew certificate: certbot renew\nOr: certbot certonly --nginx -d yourdomain.com",
                             affected_component="SSL certificate",
+                            detection_method="Performed TLS handshake analysis checking: protocol version (TLS 1.2+ required), certificate validity and expiration, hostname verification, and cipher suite strength. Uses Python\'s ssl module for direct socket-level inspection.",
                         ))
                     elif days_left < 30:
                         session.add_finding(Finding(
@@ -113,6 +116,7 @@ def run(session: ScanSession) -> None:
                             location=f"SSL certificate on {hostname}:{port}",
                             developer_fix="Set up auto-renewal: certbot renew --deploy-hook 'systemctl reload nginx'\nAdd to crontab: 0 0 * * * certbot renew",
                             affected_component="SSL certificate",
+                            detection_method="Performed TLS handshake analysis checking: protocol version (TLS 1.2+ required), certificate validity and expiration, hostname verification, and cipher suite strength. Uses Python\'s ssl module for direct socket-level inspection.",
                         ))
 
                     subject = dict(x[0] for x in cert.get("subject", []))
@@ -133,6 +137,7 @@ def run(session: ScanSession) -> None:
                             location=f"SSL certificate CN/SAN on {hostname}",
                             developer_fix=f"Reissue certificate with correct hostname:\n  certbot certonly --nginx -d {hostname}",
                             affected_component="SSL certificate subject",
+                            detection_method="Performed TLS handshake analysis checking: protocol version (TLS 1.2+ required), certificate validity and expiration, hostname verification, and cipher suite strength. Uses Python\'s ssl module for direct socket-level inspection.",
                         ))
 
                 if cipher:
@@ -155,6 +160,7 @@ def run(session: ScanSession) -> None:
                                     "Apache: SSLCipherSuite ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
                                 ),
                                 affected_component="TLS cipher suite configuration",
+                                detection_method="Performed TLS handshake analysis checking: protocol version (TLS 1.2+ required), certificate validity and expiration, hostname verification, and cipher suite strength. Uses Python\'s ssl module for direct socket-level inspection.",
                             ))
                             break
 
@@ -172,6 +178,7 @@ def run(session: ScanSession) -> None:
             location=f"SSL certificate on {hostname}:{port}",
             developer_fix="Obtain a trusted certificate: certbot certonly --nginx -d yourdomain.com",
             affected_component="SSL certificate chain",
+            detection_method="Performed TLS handshake analysis checking: protocol version (TLS 1.2+ required), certificate validity and expiration, hostname verification, and cipher suite strength. Uses Python\'s ssl module for direct socket-level inspection.",
         ))
     except (socket.timeout, ConnectionRefusedError, OSError) as e:
         print(f"  [!] SSL check failed: {e}")
@@ -206,6 +213,7 @@ def _check_deprecated_protocols(session: ScanSession, hostname: str, port: int):
                             f"Apache: SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1"
                         ),
                         affected_component="TLS protocol configuration",
+                        detection_method="Performed TLS handshake analysis checking: protocol version (TLS 1.2+ required), certificate validity and expiration, hostname verification, and cipher suite strength. Uses Python\'s ssl module for direct socket-level inspection.",
                     ))
         except (ssl.SSLError, socket.error, OSError):
             pass

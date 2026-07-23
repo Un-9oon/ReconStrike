@@ -239,6 +239,7 @@ def _build_json_output(session: ScanSession, duration: float, diff_data=None, co
                 "developer_fix": f.developer_fix,
                 "affected_component": f.affected_component,
                 "references": f.references,
+                "detection_method": f.detection_method,
             }
             for f in sorted(session.findings, key=lambda x: x.severity.score, reverse=True)
         ],

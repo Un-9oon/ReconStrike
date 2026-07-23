@@ -115,4 +115,5 @@ def run(session: ScanSession) -> None:
             ),
             affected_component=f"POST {form['action']}",
             references="https://owasp.org/www-community/attacks/csrf | https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+            detection_method="Identified POST forms performing state-changing operations (password, delete, update, etc.) and checked for CSRF token hidden fields and SameSite cookie attributes. Missing both protections confirms CSRF vulnerability.",
         ))

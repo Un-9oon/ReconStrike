@@ -56,6 +56,7 @@ class Finding:
     developer_fix: str = ""
     affected_component: str = ""
     references: str = ""
+    detection_method: str = ""
 
     @property
     def confidence(self):

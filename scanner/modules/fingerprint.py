@@ -142,6 +142,7 @@ def run(session: ScanSession) -> None:
                 ),
                 affected_component="Server headers / HTML meta tags",
                 references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server",
+                detection_method="Analyzed HTTP response headers (Server, X-Powered-By, X-AspNet-Version) and response body patterns to identify server software, frameworks, and versions. Cross-references with known EOL databases for outdated software detection.",
             ))
         else:
             session.add_finding(Finding(
@@ -156,6 +157,7 @@ def run(session: ScanSession) -> None:
                 confirmed=True,
                 location="HTTP response headers and HTML body",
                 curl_command=curl_cmd,
+                detection_method="Analyzed HTTP response headers (Server, X-Powered-By, X-AspNet-Version) and response body patterns to identify server software, frameworks, and versions. Cross-references with known EOL databases for outdated software detection.",
             ))
 
     detected_waf = []
@@ -197,6 +199,7 @@ def run(session: ScanSession) -> None:
             confirmed=True,
             location="HTTP response headers and cookies",
             curl_command=curl_cmd,
+            detection_method="Analyzed HTTP response headers (Server, X-Powered-By, X-AspNet-Version) and response body patterns to identify server software, frameworks, and versions. Cross-references with known EOL databases for outdated software detection.",
         ))
     else:
         print("  [*] No WAF/CDN detected.")
@@ -233,4 +236,5 @@ def _check_version_vulns(session: ScanSession, tech_set: set):
                     developer_fix=f"Upgrade {tech.split()[0]} to the latest supported version.\nCheck https://endoflife.date/ for EOL schedules.",
                     affected_component=f"{tech} installation",
                     references="https://endoflife.date/",
+                    detection_method="Analyzed HTTP response headers (Server, X-Powered-By, X-AspNet-Version) and response body patterns to identify server software, frameworks, and versions. Cross-references with known EOL databases for outdated software detection.",
                 ))

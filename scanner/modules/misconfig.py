@@ -54,6 +54,7 @@ def _check_methods(session: ScanSession):
                 ),
                 affected_component="Web server configuration",
                 references="https://owasp.org/www-community/attacks/Cross_Site_Tracing",
+                detection_method="Tested server configuration: sent OPTIONS requests to enumerate allowed HTTP methods, checked for missing X-Frame-Options (clickjacking), tested open redirect via manipulated parameters, and injected Host/CRLF headers to detect misrouting.",
             ))
 
     dangerous_found = found - {"TRACE"}
@@ -75,6 +76,7 @@ def _check_methods(session: ScanSession):
                 "Nginx: if ($request_method !~ ^(GET|POST|HEAD)$ ) { return 405; }"
             ),
             affected_component="Web server configuration",
+            detection_method="Tested server configuration: sent OPTIONS requests to enumerate allowed HTTP methods, checked for missing X-Frame-Options (clickjacking), tested open redirect via manipulated parameters, and injected Host/CRLF headers to detect misrouting.",
         ))
 
 
@@ -116,6 +118,7 @@ def _check_clickjacking(session: ScanSession):
                 ),
                 affected_component="Web server / application response headers",
                 references="https://owasp.org/www-community/attacks/Clickjacking",
+                detection_method="Tested server configuration: sent OPTIONS requests to enumerate allowed HTTP methods, checked for missing X-Frame-Options (clickjacking), tested open redirect via manipulated parameters, and injected Host/CRLF headers to detect misrouting.",
             ))
 
 
@@ -184,6 +187,7 @@ def _check_open_redirect(session: ScanSession):
                         ),
                         affected_component=f"Redirect handler using '{param}' parameter",
                         references="https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html",
+                        detection_method="Tested server configuration: sent OPTIONS requests to enumerate allowed HTTP methods, checked for missing X-Frame-Options (clickjacking), tested open redirect via manipulated parameters, and injected Host/CRLF headers to detect misrouting.",
                     ))
                     return
 
@@ -242,6 +246,7 @@ def _check_host_header_injection(session: ScanSession):
                 ),
                 affected_component="URL generation using Host header",
                 references="https://portswigger.net/web-security/host-header",
+                detection_method="Tested server configuration: sent OPTIONS requests to enumerate allowed HTTP methods, checked for missing X-Frame-Options (clickjacking), tested open redirect via manipulated parameters, and injected Host/CRLF headers to detect misrouting.",
             ))
 
 
@@ -294,5 +299,6 @@ def _check_crlf_injection(session: ScanSession):
                 ),
                 affected_component="HTTP response header generation",
                 references="https://owasp.org/www-community/vulnerabilities/CRLF_Injection",
+                detection_method="Tested server configuration: sent OPTIONS requests to enumerate allowed HTTP methods, checked for missing X-Frame-Options (clickjacking), tested open redirect via manipulated parameters, and injected Host/CRLF headers to detect misrouting.",
             ))
             return

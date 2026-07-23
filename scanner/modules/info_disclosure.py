@@ -111,6 +111,7 @@ def run(session: ScanSession) -> None:
                         "https://cwe.mitre.org/data/definitions/200.html | "
                         "https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html"
                     ),
+                    detection_method="Scanned response bodies, headers, and HTML comments for leaked sensitive data: email addresses, IP addresses, API keys, database connection strings, stack traces, and debug information using pattern-matching analysis.",
                 ))
 
         if re.search(STACK_TRACE_PATTERN, body, re.MULTILINE):
@@ -171,6 +172,7 @@ def run(session: ScanSession) -> None:
                     "https://cwe.mitre.org/data/definitions/209.html | "
                     "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html"
                 ),
+                detection_method="Scanned response bodies, headers, and HTML comments for leaked sensitive data: email addresses, IP addresses, API keys, database connection strings, stack traces, and debug information using pattern-matching analysis.",
             ))
 
         comments = extract_comments(body)
@@ -232,6 +234,7 @@ def run(session: ScanSession) -> None:
                             "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Webpage_Content_for_Information_Leakage | "
                             "https://cwe.mitre.org/data/definitions/615.html"
                         ),
+                        detection_method="Scanned response bodies, headers, and HTML comments for leaked sensitive data: email addresses, IP addresses, API keys, database connection strings, stack traces, and debug information using pattern-matching analysis.",
                     ))
                     break
 
@@ -290,6 +293,7 @@ def run(session: ScanSession) -> None:
                         "https://owasp.org/www-community/Improper_Error_Handling | "
                         "https://cwe.mitre.org/data/definitions/209.html"
                     ),
+                    detection_method="Scanned response bodies, headers, and HTML comments for leaked sensitive data: email addresses, IP addresses, API keys, database connection strings, stack traces, and debug information using pattern-matching analysis.",
                 ))
 
     _check_error_pages(session)
@@ -368,6 +372,7 @@ def _check_error_pages(session: ScanSession):
                         "https://cwe.mitre.org/data/definitions/209.html | "
                         "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html"
                     ),
+                    detection_method="Scanned response bodies, headers, and HTML comments for leaked sensitive data: email addresses, IP addresses, API keys, database connection strings, stack traces, and debug information using pattern-matching analysis.",
                 ))
 
         if re.search(STACK_TRACE_PATTERN, body, re.MULTILINE):
@@ -428,4 +433,5 @@ def _check_error_pages(session: ScanSession):
                     "https://cwe.mitre.org/data/definitions/209.html | "
                     "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html"
                 ),
+                detection_method="Scanned response bodies, headers, and HTML comments for leaked sensitive data: email addresses, IP addresses, API keys, database connection strings, stack traces, and debug information using pattern-matching analysis.",
             ))

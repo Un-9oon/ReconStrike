@@ -141,6 +141,7 @@ def _check_error_based(session: ScanSession, url: str, param: str, original_valu
                     ),
                     affected_component=f"Database query in route handler for {parsed.path}",
                     references="https://owasp.org/www-community/attacks/SQL_Injection | https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+                    detection_method="Injected SQL time-delay payloads (e.g., SLEEP(), pg_sleep()) into parameters and measured response time. A baseline request was sent first; delays >5s above baseline on 2/2 attempts confirm blind injection.",
                 ))
                 return True
     return False
@@ -232,6 +233,7 @@ def _check_time_based(session: ScanSession, url: str, param: str, original_value
                 ),
                 affected_component=f"Database query in route handler for {parsed.path}",
                 references="https://owasp.org/www-community/attacks/SQL_Injection | https://owasp.org/www-community/attacks/Blind_SQL_Injection",
+                detection_method="Injected SQL time-delay payloads (e.g., SLEEP(), pg_sleep()) into parameters and measured response time. A baseline request was sent first; delays >5s above baseline on 2/2 attempts confirm blind injection.",
             ))
             return True
     return False
@@ -330,6 +332,7 @@ def _check_form_sqli(session: ScanSession, form: dict):
                         ),
                         affected_component=f"{method} {form['action']} - form field '{name}'",
                         references="https://owasp.org/www-community/attacks/SQL_Injection",
+                        detection_method="Injected SQL time-delay payloads (e.g., SLEEP(), pg_sleep()) into parameters and measured response time. A baseline request was sent first; delays >5s above baseline on 2/2 attempts confirm blind injection.",
                     ))
                     return
 

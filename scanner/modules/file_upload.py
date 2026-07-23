@@ -127,6 +127,7 @@ def run(session: ScanSession) -> None:
                                 ),
                                 affected_component=f"File upload handler at {form['action']}",
                                 references="https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload",
+                                detection_method="Uploaded test files with dangerous extensions (.php, .jsp, .asp) and content types through discovered upload forms. Checked if files were stored in web-accessible locations and if server-side code execution occurred.",
                             ))
                             return
 
@@ -148,6 +149,7 @@ def run(session: ScanSession) -> None:
                                     confirmed=False,
                                     location=f"File upload at {form['action']}",
                                     developer_fix="Add .htaccess, web.config, .env to your upload blocklist. Check filename before saving.",
+                                    detection_method="Uploaded test files with dangerous extensions (.php, .jsp, .asp) and content types through discovered upload forms. Checked if files were stored in web-accessible locations and if server-side code execution occurred.",
                                 ))
 
             _check_size_limit(session, form, field_name, other_data)
@@ -179,6 +181,7 @@ def _check_size_limit(session: ScanSession, form: dict, field_name: str, other_d
                     "  Express: app.use(express.json({ limit: '5mb' }))"
                 ),
                 affected_component=f"File upload handler at {form['action']}",
+                detection_method="Uploaded test files with dangerous extensions (.php, .jsp, .asp) and content types through discovered upload forms. Checked if files were stored in web-accessible locations and if server-side code execution occurred.",
             ))
     except Exception:
         pass

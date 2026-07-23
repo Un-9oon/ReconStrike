@@ -76,6 +76,7 @@ def _check_login_security(session: ScanSession):
                         ),
                         affected_component=f"Login form at {url}",
                         references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/09-Testing_for_Weak_Cryptography/01-Testing_for_Weak_Transport_Layer_Security",
+                        detection_method="Tested authentication mechanisms: checked login forms for HTTPS, tested for username enumeration via response differences, validated password policies, and attempted default credential combinations against common login endpoints.",
                     ))
 
         from scanner.crawler import extract_forms
@@ -154,6 +155,7 @@ def _check_login_security(session: ScanSession):
                         ),
                         affected_component=f"Login handler at {form['action']}",
                         references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/03-Identity_Management_Testing/04-Testing_for_Account_Enumeration_and_Guessable_User_Account",
+                        detection_method="Tested authentication mechanisms: checked login forms for HTTPS, tested for username enumeration via response differences, validated password policies, and attempted default credential combinations against common login endpoints.",
                     ))
                     break
             break
@@ -213,6 +215,7 @@ def _check_password_policy(session: ScanSession):
                                     f"Also enforce server-side: minimum 8 chars, mixed case, numbers, special chars."
                                 ),
                                 affected_component=f"Registration form at {url}",
+                                detection_method="Tested authentication mechanisms: checked login forms for HTTPS, tested for username enumeration via response differences, validated password policies, and attempted default credential combinations against common login endpoints.",
                             ))
             break
 
@@ -335,5 +338,6 @@ def _check_default_credentials(session: ScanSession):
                 ),
                 affected_component=f"Authentication system at {login_form['action']}",
                 references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/02-Testing_for_Default_Credentials",
+                detection_method="Tested authentication mechanisms: checked login forms for HTTPS, tested for username enumeration via response differences, validated password policies, and attempted default credential combinations against common login endpoints.",
             ))
             return

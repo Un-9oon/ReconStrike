@@ -58,6 +58,9 @@ def generate_html_report(session: ScanSession, output_path: str, compliance_data
                 extra_sections += f'<div><strong style="color:#94a3b8;">Response Status:</strong> {f.response_status}</div>'
             extra_sections += '</div>'
 
+        if f.detection_method:
+            extra_sections += f'<h4>How It Was Found</h4><div style="background:#1a1a2e;border-left:3px solid #6366f1;padding:12px;border-radius:0 6px 6px 0;margin-bottom:8px;"><span style="color:#a5b4fc;">{html.escape(f.detection_method)}</span></div>'
+
         if f.curl_command:
             extra_sections += f'<h4>Reproduce with cURL</h4><pre style="background:#0f172a;color:#4ade80;padding:12px;border-radius:6px;font-size:12px;white-space:pre-wrap;word-break:break-all;">{html.escape(f.curl_command)}</pre>'
 
@@ -179,6 +182,7 @@ table tr:hover {{ background:#1a2744; }}
         <a href="#modules">Module Results</a>
         {'<a href="#compliance">Compliance</a>' if compliance_data else ''}
         <a href="#findings">Findings ({total})</a>
+        <a href="#summary-table">Findings Summary</a>
     </div>
 
     <div class="meta-grid">
@@ -245,6 +249,8 @@ table tr:hover {{ background:#1a2744; }}
     <h2 class="section-title" id="findings">Findings ({total})</h2>
     {'<div class="no-findings"><h2>No vulnerabilities found</h2><p>The scan completed without finding any issues.</p></div>' if not findings else findings_html}
 
+    {_findings_summary_html(findings, severity_colors) if findings else ''}
+
     <div class="footer">
         ReconStrike v3.0 Security Assessment Framework &mdash; For authorized testing only<br>
         Report generated on {datetime.now(timezone.utc).strftime('%B %d, %Y at %H:%M UTC')}
@@ -304,6 +310,44 @@ def _module_summary_cards(findings, severity_colors) -> str:
             f'<span style="color:{color};font-weight:600;">({sev.value})</span></div></div>'
         )
     return cards
+
+
+def _findings_summary_html(findings, severity_colors) -> str:
+    summary = '<h2 class="section-title" id="summary-table">Findings Summary</h2>'
+    summary += '<div style="background:#1e293b;border-radius:8px;padding:20px;margin-bottom:24px;">'
+    summary += '<table><thead><tr>'
+    summary += '<th>#</th><th>Severity</th><th>Title</th><th>Module</th><th>Location</th><th>Status</th>'
+    summary += '</tr></thead><tbody>'
+    for i, f in enumerate(findings, 1):
+        color = severity_colors[f.severity.value]
+        status = "Confirmed" if f.confirmed else "Tentative"
+        status_color = "#22c55e" if f.confirmed else "#d97706"
+        loc = html.escape(f.location[:50]) if f.location else html.escape(f.url[:50])
+        summary += (
+            f'<tr>'
+            f'<td style="color:#94a3b8;">{i}</td>'
+            f'<td><span style="color:{color};font-weight:700;">{f.severity.value}</span></td>'
+            f'<td style="color:#f8fafc;">{html.escape(f.title)}</td>'
+            f'<td style="color:#94a3b8;">{html.escape(f.module)}</td>'
+            f'<td style="color:#94a3b8;font-size:12px;">{loc}</td>'
+            f'<td style="color:{status_color};font-weight:600;">{status}</td>'
+            f'</tr>'
+        )
+    summary += '</tbody></table>'
+
+    from collections import Counter
+    by_sev = Counter(f.severity.value for f in findings)
+    summary += '<div style="margin-top:16px;padding-top:16px;border-top:1px solid #334155;">'
+    summary += f'<p style="color:#f8fafc;font-weight:700;font-size:16px;">Total: {len(findings)} findings</p>'
+    summary += '<div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">'
+    for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
+        if by_sev.get(sev, 0):
+            summary += f'<span style="color:{severity_colors[sev]};font-weight:600;">{sev}: {by_sev[sev]}</span>'
+    summary += '</div>'
+    confirmed = sum(1 for f in findings if f.confirmed)
+    summary += f'<p style="color:#94a3b8;margin-top:8px;">{confirmed} confirmed, {len(findings) - confirmed} tentative</p>'
+    summary += '</div></div>'
+    return summary
 
 
 def _calculate_risk_score(findings) -> int:

@@ -114,6 +114,7 @@ def _check_param(session: ScanSession, url: str, param: str, original: str):
                         ),
                         affected_component=f"HTTP client in route handler for {parsed.path}",
                         references="https://owasp.org/www-community/attacks/Server_Side_Request_Forgery | https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+                        detection_method="Injected internal URLs (127.0.0.1, 169.254.169.254 metadata, internal hostnames) into parameters likely to fetch remote resources. Checked responses for internal service signatures or cloud metadata content not present in baseline.",
                     ))
                     return
 
@@ -156,6 +157,7 @@ def _check_param(session: ScanSession, url: str, param: str, original: str):
             curl_command=curl_cmd,
             developer_fix="Validate destination URLs against an allowlist and block private IP ranges before making requests.",
             references="https://owasp.org/www-community/attacks/Server_Side_Request_Forgery",
+            detection_method="Injected internal URLs (127.0.0.1, 169.254.169.254 metadata, internal hostnames) into parameters likely to fetch remote resources. Checked responses for internal service signatures or cloud metadata content not present in baseline.",
         ))
 
 

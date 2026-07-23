@@ -135,6 +135,7 @@ def run(session: ScanSession) -> None:
             ),
             affected_component=f"DNS configuration for {base_domain}",
             references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/03-Review_Webserver_Metafiles_for_Information_Leakage",
+            detection_method="DNS brute-force enumeration using a wordlist of common subdomain names. Resolved each candidate via DNS lookup, filtered wildcard responses, and flagged sensitive subdomains (admin, staging, internal, database).",
         ))
 
     all_list = "\n".join(f"  {fqdn} -> {ip}" for fqdn, ip, _ in found_subdomains)
@@ -150,4 +151,5 @@ def run(session: ScanSession) -> None:
         confirmed=True,
         location=f"DNS records for {base_domain}",
         curl_command=f"for sub in www mail admin dev staging; do dig +short $sub.{base_domain}; done",
+        detection_method="DNS brute-force enumeration using a wordlist of common subdomain names. Resolved each candidate via DNS lookup, filtered wildcard responses, and flagged sensitive subdomains (admin, staging, internal, database).",
     ))

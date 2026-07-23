@@ -118,6 +118,7 @@ def _check_param(session: ScanSession, url: str, param: str, original: str):
                     ),
                     affected_component=f"Route handler for {parsed.path} - shell command execution",
                     references="https://owasp.org/www-community/attacks/Command_Injection | https://cwe.mitre.org/data/definitions/78.html",
+                    detection_method="Injected OS command separators (;, |, &&, ``, $()) with marker-echo commands into parameters. Compared response against clean baseline — finding is confirmed only when the unique marker string appears in the response but not in baseline.",
                 ))
                 return True
 
@@ -183,6 +184,7 @@ def _check_param(session: ScanSession, url: str, param: str, original: str):
                 ),
                 affected_component=f"Route handler for {parsed.path}",
                 references="https://owasp.org/www-community/attacks/Command_Injection",
+                detection_method="Injected OS command separators (;, |, &&, ``, $()) with marker-echo commands into parameters. Compared response against clean baseline — finding is confirmed only when the unique marker string appears in the response but not in baseline.",
             ))
             return True
 
@@ -272,6 +274,7 @@ def _check_form(session: ScanSession, form: dict):
                         ),
                         affected_component=f"{method} {form['action']} - field '{name}'",
                         references="https://owasp.org/www-community/attacks/Command_Injection",
+                        detection_method="Injected OS command separators (;, |, &&, ``, $()) with marker-echo commands into parameters. Compared response against clean baseline — finding is confirmed only when the unique marker string appears in the response but not in baseline.",
                     ))
                     return
 

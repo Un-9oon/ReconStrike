@@ -136,6 +136,7 @@ def run(session: ScanSession) -> None:
                 ),
                 affected_component=f"{service} service on port {port}",
                 references="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information",
+                detection_method="Performed TCP connect scan against common service ports (21-27017) with banner grabbing. Identified exposed services that should not be publicly accessible (databases, Docker API, Redis, etc.).",
             ))
         elif severity != Severity.INFO:
             session.add_finding(Finding(
@@ -151,6 +152,7 @@ def run(session: ScanSession) -> None:
                 location=f"Port {port} ({service}) on {hostname} ({ip})",
                 curl_command=nmap_cmd,
                 developer_fix=f"If not needed publicly:\n  iptables -A INPUT -p tcp --dport {port} -j DROP",
+                detection_method="Performed TCP connect scan against common service ports (21-27017) with banner grabbing. Identified exposed services that should not be publicly accessible (databases, Docker API, Redis, etc.).",
             ))
 
     port_list = ", ".join(f"{p}({s})" for p, s, _ in open_ports)

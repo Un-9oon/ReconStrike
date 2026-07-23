@@ -337,6 +337,19 @@ def generate_pdf_report(session: ScanSession, output_path: str, compliance_data:
                 pdf._key_value("Component", f.affected_component[:90])
             pdf.ln(2)
 
+        # Detection method
+        if f.detection_method:
+            if pdf.get_y() > 250:
+                pdf.add_page()
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(99, 102, 241)
+            pdf.cell(0, 5, "HOW IT WAS FOUND", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_fill_color(245, 243, 255)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(67, 56, 202)
+            pdf.multi_cell(0, 4, f.detection_method, fill=True)
+            pdf.ln(2)
+
         # Evidence
         if pdf.get_y() > 250:
             pdf.add_page()
@@ -490,8 +503,68 @@ def generate_pdf_report(session: ScanSession, output_path: str, compliance_data:
         pdf.set_font("Helvetica", "B", 10)
         pdf.cell(0, 7, f"PCI DSS Score: {pci_pass}/{pci_total} requirements passing", new_x="LMARGIN", new_y="NEXT")
 
+    # ── Findings Summary ──
+    summary_num = "4" if not compliance_data else "5"
+    pdf.add_page()
+    pdf._section_title(f"{summary_num}. Findings Summary")
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(51, 65, 85)
+    total = len(findings)
+    confirmed = sum(1 for f in findings if f.confirmed)
+    pdf.multi_cell(0, 5, (
+        f"This section provides a consolidated view of all {total} findings "
+        f"({confirmed} confirmed, {total - confirmed} tentative) discovered during the assessment."
+    ))
+    pdf.ln(4)
+
+    sum_cols = [("No.", 10), ("Severity", 22), ("Title", 75), ("Module", 22), ("Status", 18), ("Location", 43)]
+    pdf._table_header(sum_cols)
+
+    for i, f in enumerate(findings, 1):
+        if pdf.get_y() > 260:
+            pdf.add_page()
+            pdf._table_header(sum_cols)
+        sev_color = SEVERITY_COLORS.get(f.severity.value, (0, 0, 0))
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(100, 100, 100)
+        pdf.cell(10, 6, str(i), border=1, align="C")
+        pdf.set_text_color(*sev_color)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(22, 6, f.severity.value, border=1, align="C")
+        pdf.set_text_color(30, 41, 59)
+        pdf.set_font("Helvetica", "", 8)
+        title_t = f.title[:45] + "..." if len(f.title) > 45 else f.title
+        pdf.cell(75, 6, title_t, border=1)
+        pdf.cell(22, 6, f.module[:12], border=1, align="C")
+        if f.confirmed:
+            pdf.set_text_color(*PASS_COLOR)
+        else:
+            pdf.set_text_color(*SEVERITY_COLORS["MEDIUM"])
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(18, 6, "Confirmed" if f.confirmed else "Tentative", border=1, align="C")
+        pdf.set_text_color(100, 100, 100)
+        pdf.set_font("Helvetica", "", 7)
+        loc = (f.location[:25] if f.location else f.url[:25])
+        pdf.cell(43, 6, loc, border=1)
+        pdf.ln()
+        pdf.set_text_color(0, 0, 0)
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(0, 8, f"Total Findings: {total}", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    for sev_name in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
+        count = sum(1 for f in findings if f.severity.value == sev_name)
+        if count:
+            pdf.set_text_color(*SEVERITY_COLORS[sev_name])
+            pdf.cell(0, 6, f"  {sev_name}: {count}", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 6, f"  Confirmed: {confirmed} | Tentative: {total - confirmed}", new_x="LMARGIN", new_y="NEXT")
+
     # ── Methodology ──
-    section_num = "5" if compliance_data else "4"
+    section_num = str(int(summary_num) + 1)
     pdf.add_page()
     pdf._section_title(f"{section_num}. Methodology")
     pdf.set_font("Helvetica", "", 10)
