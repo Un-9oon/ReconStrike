@@ -183,16 +183,15 @@ class ScanSession:
         self._rate_lock = threading.Lock()
         self._scope_include_re = None
         self._scope_exclude_re = None
-        if config.scope_include:
-            try:
-                self._scope_include_re = re.compile(config.scope_include, re.IGNORECASE)
-            except re.error as e:
-                print(f"{Fore.RED}[!] Invalid --scope-include regex: {e}{Style.RESET_ALL}")
         if config.scope_exclude:
             try:
                 self._scope_exclude_re = re.compile(config.scope_exclude, re.IGNORECASE)
             except re.error as e:
                 print(f"{Fore.RED}[!] Invalid --scope-exclude regex: {e}{Style.RESET_ALL}")
+        self._consecutive_fails = 0
+        self._consecutive_blocks = 0
+        self._warned_block = False
+        self._warned_fail = False
 
     def authenticate(self) -> bool:
         if not self.config.auth_url:
@@ -297,6 +296,29 @@ class ScanSession:
         if sleep_time > 0:
             time.sleep(sleep_time)
 
+    def _track_response_status(self, resp: Optional[requests.Response], exc: Optional[Exception] = None):
+        with self._lock:
+            if exc is not None or resp is None:
+                self._consecutive_fails += 1
+                if self._consecutive_fails >= 5 and not self._warned_fail:
+                    self._warned_fail = True
+                    print(
+                        f"\n  {Fore.RED}[!] WARNING: High request failure rate / timeouts detected (5+ failed requests). "
+                        f"Target host may be dropping connections or firewalling your IP.{Style.RESET_ALL}"
+                    )
+            else:
+                self._consecutive_fails = 0
+                if resp.status_code in (429, 403):
+                    self._consecutive_blocks += 1
+                    if self._consecutive_blocks >= 3 and not self._warned_block:
+                        self._warned_block = True
+                        print(
+                            f"\n  {Fore.YELLOW}[!] WARNING: Target returned HTTP {resp.status_code} multiple times. "
+                            f"Target WAF or rate-limiter is actively blocking/throttling requests.{Style.RESET_ALL}"
+                        )
+                else:
+                    self._consecutive_blocks = 0
+
     def _in_scope(self, url: str) -> bool:
         if self._scope_exclude_re:
             if self._scope_exclude_re.search(url):
@@ -308,6 +330,7 @@ class ScanSession:
 
     def _safe_read(self, resp: requests.Response) -> Optional[requests.Response]:
         if resp is None:
+            self._track_response_status(None)
             return None
 
         if resp.history:
@@ -315,12 +338,14 @@ class ScanSession:
             target_host = urlparse(self.config.target).netloc.split(":")[0]
             if _is_private_ip(final_host) and not _is_private_ip(target_host):
                 resp.close()
+                self._track_response_status(None)
                 return None
 
         if resp.headers.get("Content-Length"):
             try:
                 if int(resp.headers["Content-Length"]) > MAX_RESPONSE_SIZE:
                     resp.close()
+                    self._track_response_status(None)
                     return None
             except ValueError:
                 pass
@@ -332,12 +357,15 @@ class ScanSession:
                 bytes_read += len(chunk)
                 if bytes_read > MAX_RESPONSE_SIZE:
                     resp.close()
+                    self._track_response_status(None)
                     return None
                 chunks.append(chunk)
             resp._content = b"".join(chunks)
-        except Exception:
+        except Exception as e:
+            self._track_response_status(None, exc=e)
             return None
 
+        self._track_response_status(resp)
         return resp
 
     def get(self, url: str, **kwargs) -> Optional[requests.Response]:
@@ -348,7 +376,8 @@ class ScanSession:
             kwargs.setdefault("stream", True)
             resp = self.session.get(url, **kwargs)
             return self._safe_read(resp)
-        except requests.RequestException:
+        except requests.RequestException as e:
+            self._track_response_status(None, exc=e)
             return None
 
     def post(self, url: str, **kwargs) -> Optional[requests.Response]:
@@ -358,12 +387,16 @@ class ScanSession:
             kwargs.setdefault("stream", True)
             resp = self.session.post(url, **kwargs)
             return self._safe_read(resp)
-        except requests.RequestException:
+        except requests.RequestException as e:
+            self._track_response_status(None, exc=e)
             return None
 
     def head(self, url: str, **kwargs) -> Optional[requests.Response]:
         try:
             kwargs.setdefault("timeout", self.config.timeout)
-            return self.session.head(url, **kwargs)
-        except requests.RequestException:
+            resp = self.session.head(url, **kwargs)
+            self._track_response_status(resp)
+            return resp
+        except requests.RequestException as e:
+            self._track_response_status(None, exc=e)
             return None
