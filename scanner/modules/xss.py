@@ -3,7 +3,7 @@ import random
 import string
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from scanner.core import Finding, Severity, ScanSession
+from scanner.core import Finding, Severity, ScanSession, build_curl
 
 
 def _random_tag():
@@ -43,15 +43,6 @@ def _detect_context(body: str, marker: str) -> str:
         return "html_attr"
     return "html_body"
 
-
-def _build_curl(method, url, headers=None, data=None):
-    cmd = f"curl -k -X {method} '{url}'"
-    if headers:
-        for k, v in headers.items():
-            cmd += f" -H '{k}: {v}'"
-    if data:
-        cmd += f" -d '{data}'"
-    return cmd
 
 
 def _check_url_params(session: ScanSession, url: str):
@@ -128,7 +119,7 @@ def _check_url_params(session: ScanSession, url: str):
                     payload=payload,
                     request_method="GET",
                     response_status=resp2.status_code,
-                    curl_command=_build_curl("GET", test_url2),
+                    curl_command=build_curl("GET", test_url2),
                     reproduction_steps=(
                         f"1. Open the target URL: {url}\n"
                         f"2. Modify the '{param}' parameter value to: {payload}\n"
@@ -234,7 +225,7 @@ def _check_forms(session: ScanSession, form: dict):
                     request_method=method,
                     request_body=data_str,
                     response_status=resp2.status_code,
-                    curl_command=_build_curl(method, form["action"], data=data_str) if method == "POST" else _build_curl("GET", f"{form['action']}?{data_str}"),
+                    curl_command=build_curl(method, form["action"], data=data_str) if method == "POST" else build_curl("GET", f"{form['action']}?{data_str}"),
                     reproduction_steps=(
                         f"1. Navigate to the page containing the form: {source_url}\n"
                         f"2. Locate the form that submits to: {form['action']}\n"

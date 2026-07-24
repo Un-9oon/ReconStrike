@@ -2,7 +2,7 @@ import re
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from scanner.core import Finding, Severity, ScanSession
+from scanner.core import Finding, Severity, ScanSession, build_curl
 
 
 DETECTION_PAYLOADS = [
@@ -29,12 +29,6 @@ TIME_PAYLOADS = [
     ("$(sleep 5)", 5),
 ]
 
-
-def _build_curl(method, url, data=None):
-    cmd = f"curl -k -X {method} '{url}'"
-    if data:
-        cmd += f" -d '{data}'"
-    return cmd
 
 
 def _get_baseline(session, url, param, original):
@@ -66,7 +60,7 @@ def _check_param(session: ScanSession, url: str, param: str, original: str):
                     if len(lines) < 3:
                         continue
 
-                curl_cmd = _build_curl("GET", test_url)
+                curl_cmd = build_curl("GET", test_url)
                 session.add_finding(Finding(
                     title=f"OS Command Injection ({group['os']})",
                     severity=Severity.CRITICAL,
@@ -146,7 +140,7 @@ def _check_param(session: ScanSession, url: str, param: str, original: str):
                 hits += 1
 
         if hits >= 2:
-            curl_cmd = _build_curl("GET", test_url)
+            curl_cmd = build_curl("GET", test_url)
             session.add_finding(Finding(
                 title="OS Command Injection (Time-Based)",
                 severity=Severity.CRITICAL,
@@ -231,7 +225,7 @@ def _check_form(session: ScanSession, form: dict):
                             continue
 
                     data_str = "&".join(f"{k}={v}" for k, v in post_data.items())
-                    curl_cmd = _build_curl(method, form["action"], data=data_str) if method == "POST" else _build_curl("GET", f"{form['action']}?{data_str}")
+                    curl_cmd = build_curl(method, form["action"], data=data_str) if method == "POST" else build_curl("GET", f"{form['action']}?{data_str}")
                     source_url = form.get("source_url", form["action"])
 
                     session.add_finding(Finding(

@@ -61,7 +61,7 @@ def scan_api_endpoints(session: ScanSession):
 
 def _check_api_auth(session: ScanSession, endpoint: dict):
     unauth_session = __import__("requests").Session()
-    unauth_session.verify = False
+    unauth_session.verify = session.config.verify_ssl
     unauth_session.headers.update({"User-Agent": session.config.user_agent})
 
     try:
@@ -146,7 +146,7 @@ def _check_api_methods(session: ScanSession, endpoint: dict):
         try:
             resp = session.session.request(
                 method, endpoint["url"],
-                timeout=session.config.timeout, verify=False
+                timeout=session.config.timeout, verify=session.config.verify_ssl
             )
             if resp.status_code not in (404, 405, 501):
                 dangerous_results.append((method, resp.status_code))

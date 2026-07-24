@@ -8,10 +8,16 @@ from scanner.core import ScanSession
 SCAN_HISTORY_DIR = os.path.expanduser("~/.reconstrike/history")
 
 
-def save_scan_results(session: ScanSession):
-    os.makedirs(SCAN_HISTORY_DIR, exist_ok=True)
+def _safe_domain(target: str) -> str:
+    import re
     from urllib.parse import urlparse
-    domain = urlparse(session.config.target).netloc.replace(":", "_")
+    domain = urlparse(target).netloc.replace(":", "_")
+    return re.sub(r'[^a-zA-Z0-9._-]', '', domain) or "unknown"
+
+
+def save_scan_results(session: ScanSession):
+    os.makedirs(SCAN_HISTORY_DIR, mode=0o700, exist_ok=True)
+    domain = _safe_domain(session.config.target)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"{domain}_{timestamp}.json"
     filepath = os.path.join(SCAN_HISTORY_DIR, filename)
@@ -47,19 +53,20 @@ def save_scan_results(session: ScanSession):
         ],
     }
 
-    with open(filepath, "w") as fh:
+    fd = os.open(filepath, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
         json.dump(data, fh, indent=2)
 
     latest = os.path.join(SCAN_HISTORY_DIR, f"{domain}_latest.json")
-    with open(latest, "w") as fh:
+    fd2 = os.open(latest, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd2, "w") as fh:
         json.dump(data, fh, indent=2)
 
     return filepath
 
 
 def load_previous_scan(target: str) -> dict | None:
-    from urllib.parse import urlparse
-    domain = urlparse(target).netloc.replace(":", "_")
+    domain = _safe_domain(target)
     latest = os.path.join(SCAN_HISTORY_DIR, f"{domain}_latest.json")
     if not os.path.exists(latest):
         return None

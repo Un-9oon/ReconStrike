@@ -75,7 +75,8 @@ def generate_html_report(session: ScanSession, output_path: str, compliance_data
 
         if f.references:
             refs = f.references.split("|")
-            ref_links = " ".join(f'<a href="{html.escape(r.strip())}" target="_blank" style="color:#60a5fa;margin-right:12px;">{html.escape(r.strip())}</a>' for r in refs if r.strip())
+            safe_refs = [r.strip() for r in refs if r.strip() and r.strip().startswith(("http://", "https://"))]
+            ref_links = " ".join(f'<a href="{html.escape(r)}" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;margin-right:12px;">{html.escape(r)}</a>' for r in safe_refs)
             extra_sections += f'<div style="margin-top:8px;"><strong style="color:#94a3b8;">References:</strong> {ref_links}</div>'
 
         findings_html += f"""
@@ -88,7 +89,7 @@ def generate_html_report(session: ScanSession, output_path: str, compliance_data
             <div class="finding-meta">
                 <span>Module: {html.escape(f.module)}</span>
                 {f'<span>CWE: <a href="https://cwe.mitre.org/data/definitions/{html.escape(f.cwe.replace("CWE-", ""))}.html" target="_blank">{html.escape(f.cwe)}</a></span>' if f.cwe else ''}
-                <span>URL: <a href="{html.escape(f.url)}">{html.escape(f.url[:80])}</a></span>
+                <span>URL: {f'<a href="{html.escape(f.url)}">{html.escape(f.url[:80])}</a>' if f.url.startswith(("http://","https://")) else html.escape(f.url[:80])}</span>
                 {location_html}
                 {param_html}
             </div>

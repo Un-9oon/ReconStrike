@@ -2,7 +2,7 @@ import re
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from scanner.core import Finding, Severity, ScanSession
+from scanner.core import Finding, Severity, ScanSession, build_curl
 
 URL_PARAMS = [
     "url", "uri", "path", "dest", "redirect", "return", "next",
@@ -28,9 +28,6 @@ SSRF_PAYLOADS = [
     {"payload": "gopher://127.0.0.1:6379/_INFO", "indicators": [r"redis_version"], "desc": "Redis via gopher:// protocol"},
 ]
 
-
-def _build_curl(url):
-    return f"curl -k '{url}'"
 
 
 def _get_baseline(session: ScanSession, url: str, param: str, original: str) -> str:
@@ -61,7 +58,7 @@ def _check_param(session: ScanSession, url: str, param: str, original: str):
                     is_cloud_meta = "metadata" in entry["payload"] or "169.254" in entry["payload"]
                     is_file = "file:///" in entry["payload"]
                     severity = Severity.CRITICAL if (is_cloud_meta or is_file) else Severity.HIGH
-                    curl_cmd = _build_curl(test_url)
+                    curl_cmd = build_curl(test_url)
 
                     session.add_finding(Finding(
                         title=f"Server-Side Request Forgery (SSRF)",
@@ -140,7 +137,7 @@ def _check_param(session: ScanSession, url: str, param: str, original: str):
             hits += 1
 
     if hits >= 2:
-        curl_cmd = _build_curl(test_url)
+        curl_cmd = build_curl(test_url)
         session.add_finding(Finding(
             title="Potential SSRF (Time-Based)",
             severity=Severity.MEDIUM,

@@ -14,7 +14,7 @@ def run(session: ScanSession) -> None:
 
 
 def _check_methods(session: ScanSession):
-    resp = session.session.options(session.config.target, timeout=session.config.timeout, verify=False)
+    resp = session.session.options(session.config.target, timeout=session.config.timeout, verify=session.config.verify_ssl)
     allow = resp.headers.get("Allow", "") or resp.headers.get("Access-Control-Allow-Methods", "")
     if not allow:
         return
@@ -26,7 +26,7 @@ def _check_methods(session: ScanSession):
 
     if "TRACE" in found:
         trace_resp = session.session.request("TRACE", session.config.target,
-                                              timeout=session.config.timeout, verify=False)
+                                              timeout=session.config.timeout, verify=session.config.verify_ssl)
         if trace_resp.status_code == 200 and "TRACE" in trace_resp.text.upper():
             session.add_finding(Finding(
                 title="HTTP TRACE Method Enabled",

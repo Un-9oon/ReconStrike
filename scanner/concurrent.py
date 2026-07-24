@@ -4,11 +4,13 @@ from urllib.parse import urlparse, parse_qs
 
 from colorama import Fore, Style
 
-from scanner.core import ScanSession
+from scanner.core import ScanSession, _is_private_ip
+
+MAX_URLS = 500
 
 
 class ConcurrentCrawler:
-    """Thread-pool based crawler that's 5-10x faster than sequential."""
+    """Thread-pool based crawler with safety limits."""
 
     def __init__(self, session: ScanSession):
         self.session = session
@@ -16,6 +18,7 @@ class ConcurrentCrawler:
         self.visited = set()
         self.scope_domain = urlparse(self.config.target).netloc
         self._lock = __import__("threading").Lock()
+        self._total_urls = 0
 
     def crawl(self):
         from scanner.crawler import extract_links, extract_forms, extract_js_urls
@@ -27,6 +30,10 @@ class ConcurrentCrawler:
         depth_map = {self.config.target: 0}
 
         while queue:
+            if self._total_urls >= MAX_URLS:
+                print(f"{Fore.YELLOW}[!] Crawl limit reached ({MAX_URLS} URLs){Style.RESET_ALL}")
+                break
+
             batch = queue[:self.config.threads * 2]
             queue = queue[len(batch):]
 
@@ -47,17 +54,23 @@ class ConcurrentCrawler:
                         continue
 
                     resp, new_links, forms = result
-                    self.session.crawled_urls.add(url)
-                    for form in forms:
-                        form["source_url"] = url
-                        self.session.forms.append(form)
+                    with self._lock:
+                        self.session.crawled_urls.add(url)
+                        self._total_urls += 1
+                        MAX_FORMS = 200
+                        for form in forms:
+                            form["source_url"] = url
+                            if len(self.session.forms) < MAX_FORMS:
+                                if not any(f["action"] == form["action"] and f["method"] == form["method"] for f in self.session.forms):
+                                    self.session.forms.append(form)
 
                     current_depth = depth_map.get(url, 0)
                     if current_depth < self.config.depth:
                         for link in new_links:
-                            if self._normalize(link) not in self.visited:
-                                depth_map[link] = current_depth + 1
-                                queue.append(link)
+                            with self._lock:
+                                if self._normalize(link) not in self.visited and self._total_urls < MAX_URLS:
+                                    depth_map[link] = current_depth + 1
+                                    queue.append(link)
 
         elapsed = time.time() - start
         print(
@@ -67,6 +80,11 @@ class ConcurrentCrawler:
 
     def _fetch(self, url):
         from scanner.crawler import extract_links, extract_forms, extract_js_urls
+
+        parsed = urlparse(url)
+        hostname = parsed.netloc.split(":")[0]
+        if _is_private_ip(hostname) and hostname not in urlparse(self.config.target).netloc:
+            return None
 
         resp = self.session.get(url)
         if not resp:
@@ -85,10 +103,10 @@ class ConcurrentCrawler:
         skip_ext = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".css",
                     ".woff", ".woff2", ".ttf", ".eot", ".mp4", ".mp3", ".pdf")
         for link in links | js_urls:
-            parsed = urlparse(link)
-            if parsed.netloc and parsed.netloc != self.scope_domain:
+            link_parsed = urlparse(link)
+            if link_parsed.netloc and link_parsed.netloc != self.scope_domain:
                 continue
-            if any(parsed.path.lower().endswith(ext) for ext in skip_ext):
+            if any(link_parsed.path.lower().endswith(ext) for ext in skip_ext):
                 continue
             all_urls.add(link)
 

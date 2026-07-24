@@ -1,7 +1,7 @@
 import re
 from urllib.parse import urlparse
 
-from scanner.core import Finding, Severity, ScanSession
+from scanner.core import Finding, Severity, ScanSession, build_curl
 
 XXE_PAYLOADS = [
     {
@@ -43,18 +43,6 @@ def _is_xml_endpoint(resp) -> bool:
         return True
     return resp.text.lstrip()[:5] == "<?xml"
 
-
-def _build_curl(method, url, headers=None, data=None, files=None):
-    cmd = f"curl -k -X {method} '{url}'"
-    if headers:
-        for k, v in headers.items():
-            cmd += f" -H '{k}: {v}'"
-    if data:
-        cmd += f" -d '{data}'"
-    if files:
-        for field_name, (filename, _, content_type) in files.items():
-            cmd += f" -F '{field_name}=@{filename};type={content_type}'"
-    return cmd
 
 
 def _extract_snippet(text: str, indicator: str, context_chars: int = 80) -> str:
@@ -140,7 +128,7 @@ def _check_xml_endpoints(session: ScanSession):
                     request_headers="Content-Type: application/xml",
                     request_body=entry["payload"],
                     response_status=test_resp.status_code,
-                    curl_command=_build_curl("POST", url, headers=headers, data=entry["payload"]),
+                    curl_command=build_curl("POST", url, headers=headers, data=entry["payload"]),
                     reproduction_steps=(
                         f"1. Identify the XML-accepting endpoint at: {url}\n"
                         f"2. Craft an XML payload with an external entity definition:\n"
@@ -242,7 +230,7 @@ def _check_content_type_switch(session: ScanSession):
                     request_headers="Content-Type: application/xml",
                     request_body=entry["payload"],
                     response_status=resp.status_code,
-                    curl_command=_build_curl("POST", form["action"], headers=headers, data=entry["payload"]),
+                    curl_command=build_curl("POST", form["action"], headers=headers, data=entry["payload"]),
                     reproduction_steps=(
                         f"1. Navigate to the page containing the form: {source_url}\n"
                         f"2. Identify the form that POSTs to: {form['action']}\n"
@@ -354,7 +342,7 @@ def _check_file_upload_xxe(session: ScanSession):
                         request_headers="Content-Type: multipart/form-data",
                         request_body=f"File field '{name}' = test.svg (malicious SVG); {other_data_str}" if other_data_str else f"File field '{name}' = test.svg (malicious SVG)",
                         response_status=resp.status_code,
-                        curl_command=_build_curl("POST", form["action"], files=files, data=other_data_str if other_data_str else None),
+                        curl_command=build_curl("POST", form["action"], files=files, data=other_data_str if other_data_str else None),
                         reproduction_steps=(
                             f"1. Navigate to the page with the file upload form: {source_url}\n"
                             f"2. Create a malicious SVG file (test.svg) with the following content:\n"

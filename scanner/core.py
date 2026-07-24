@@ -1,13 +1,16 @@
+import re
 import time
+import threading
+import ipaddress
 import urllib3
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 from colorama import Fore, Style
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class Severity(Enum):
@@ -63,6 +66,40 @@ class Finding:
         return "Confirmed" if self.confirmed else "Tentative"
 
 
+SENSITIVE_PARAM_PATTERNS = re.compile(
+    r'(password|passwd|pass|pwd|secret|auth|token|access_token|api_key|apikey|bearer)=[^&]+',
+    re.IGNORECASE
+)
+
+
+def _redact_sensitive(text: str) -> str:
+    if not text:
+        return ""
+    text = SENSITIVE_PARAM_PATTERNS.sub(r'\1=[REDACTED]', text)
+    text = re.sub(r'(Authorization:\s*)(Bearer|Basic)?\s*[A-Za-z0-9._~\-+/=]+', r'\1\2 [REDACTED]', text, flags=re.IGNORECASE)
+    return text
+
+
+def shell_quote(s: str) -> str:
+    return "'" + s.replace("'", "'\"'\"'") + "'"
+
+
+def build_curl(method: str, url: str, headers: dict = None, data: str = None) -> str:
+    safe_url = _redact_sensitive(url)
+    cmd = f"curl -k -X {method} {shell_quote(safe_url)}"
+    if headers:
+        for k, v in headers.items():
+            if k.lower() in ("authorization", "cookie", "x-api-key"):
+                v = "[REDACTED]"
+            else:
+                v = _redact_sensitive(str(v))
+            cmd += f" -H {shell_quote(f'{k}: {v}')}"
+    if data:
+        safe_data = _redact_sensitive(data)
+        cmd += f" -d {shell_quote(safe_data)}"
+    return cmd
+
+
 @dataclass
 class ScanConfig:
     target: str
@@ -75,7 +112,7 @@ class ScanConfig:
     auth_password: str = ""
     cookies: dict = field(default_factory=dict)
     headers: dict = field(default_factory=dict)
-    verify_ssl: bool = False
+    verify_ssl: bool = True
     follow_redirects: bool = True
     scan_modules: list = field(default_factory=list)
     proxy: str = ""
@@ -84,11 +121,51 @@ class ScanConfig:
     scope_exclude: str = ""
 
 
+MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+PRIVATE_IP_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _is_private_ip(hostname: str) -> bool:
+    try:
+        import socket
+        ip = socket.gethostbyname(hostname)
+        addr = ipaddress.ip_address(ip)
+        return any(addr in net for net in PRIVATE_IP_RANGES)
+    except (socket.gaierror, ValueError):
+        return False
+
+
+def _domain_matches(url: str, reference_url: str) -> bool:
+    return urlparse(url).netloc.lower() == urlparse(reference_url).netloc.lower()
+
+
+def _sanitize_path(path: str) -> str:
+    abs_path = os.path.abspath(path)
+    cwd = os.path.abspath(os.getcwd())
+    rel = os.path.relpath(abs_path, start=cwd)
+    if rel.startswith("..") or os.path.isabs(rel):
+        basename = os.path.basename(path) or "output"
+        return os.path.join(cwd, basename)
+    return abs_path
+
+
 class ScanSession:
     def __init__(self, config: ScanConfig):
         self.config = config
         self.session = requests.Session()
         self.session.verify = config.verify_ssl
+        if not config.verify_ssl:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self.session.headers.update({
             "User-Agent": config.user_agent,
             **config.headers,
@@ -102,12 +179,30 @@ class ScanSession:
         self.end_time: Optional[float] = None
         self._last_request_time: float = 0
         self._request_count: int = 0
+        self._lock = threading.Lock()
+        self._rate_lock = threading.Lock()
+        self._scope_include_re = None
+        self._scope_exclude_re = None
+        if config.scope_include:
+            try:
+                self._scope_include_re = re.compile(config.scope_include, re.IGNORECASE)
+            except re.error as e:
+                print(f"{Fore.RED}[!] Invalid --scope-include regex: {e}{Style.RESET_ALL}")
+        if config.scope_exclude:
+            try:
+                self._scope_exclude_re = re.compile(config.scope_exclude, re.IGNORECASE)
+            except re.error as e:
+                print(f"{Fore.RED}[!] Invalid --scope-exclude regex: {e}{Style.RESET_ALL}")
 
     def authenticate(self) -> bool:
         if not self.config.auth_url:
             return True
         try:
+            auth_parsed = urlparse(self.config.auth_url)
+            auth_domain = auth_parsed.netloc.lower()
             resp = self.session.get(self.config.auth_url, timeout=self.config.timeout)
+            if not resp:
+                return False
             from .crawler import extract_forms
             forms = extract_forms(resp.text, self.config.auth_url)
             login_form = None
@@ -133,13 +228,27 @@ class ScanSession:
                 elif inp.get("value"):
                     post_data[name] = inp["value"]
 
-            method = login_form.get("method", "post").lower()
             action = login_form.get("action", self.config.auth_url)
+            action_parsed = urlparse(action)
 
-            if method == "post":
-                resp = self.session.post(action, data=post_data, timeout=self.config.timeout)
-            else:
-                resp = self.session.get(action, params=post_data, timeout=self.config.timeout)
+            if auth_parsed.scheme == "https" and action_parsed.scheme == "http":
+                print(
+                    f"{Fore.RED}[!] Refusing to send credentials over unencrypted HTTP action "
+                    f"({action}).{Style.RESET_ALL}"
+                )
+                return False
+
+            action_domain = action_parsed.netloc.lower()
+            if action_domain and action_domain != auth_domain:
+                print(
+                    f"{Fore.RED}[!] Login form action points to different domain "
+                    f"({action_domain} != {auth_domain}). Refusing to send credentials.{Style.RESET_ALL}"
+                )
+                return False
+
+            resp = self.session.post(action, data=post_data, timeout=self.config.timeout)
+            if not resp:
+                return False
 
             if resp.status_code == 200 and "logout" in resp.text.lower():
                 print(f"{Fore.GREEN}[+] Authentication successful{Style.RESET_ALL}")
@@ -153,14 +262,17 @@ class ScanSession:
             return True
 
         except Exception as e:
-            print(f"{Fore.RED}[-] Authentication failed: {e}{Style.RESET_ALL}")
+            print(f"{Fore.RED}[-] Authentication failed: {type(e).__name__}{Style.RESET_ALL}")
             return False
 
     def add_finding(self, finding: Finding):
-        for existing in self.findings:
-            if existing.title == finding.title and existing.url == finding.url:
-                return
-        self.findings.append(finding)
+        with self._lock:
+            for existing in self.findings:
+                if existing.title == finding.title and existing.url == finding.url:
+                    return
+            finding.description = _redact_sensitive(finding.description)
+            finding.evidence = _redact_sensitive(finding.evidence)
+            self.findings.append(finding)
         severity_color = finding.severity.color
         conf = f"{Fore.GREEN}CONFIRMED" if finding.confirmed else f"{Fore.YELLOW}TENTATIVE"
         print(
@@ -169,30 +281,73 @@ class ScanSession:
         )
 
     def _rate_limit(self):
-        if self.config.rate_limit > 0:
-            interval = 1.0 / self.config.rate_limit
-            elapsed = time.time() - self._last_request_time
-            if elapsed < interval:
-                time.sleep(interval - elapsed)
-        self._last_request_time = time.time()
-        self._request_count += 1
+        sleep_time = 0.0
+        with self._rate_lock:
+            if self.config.rate_limit > 0:
+                interval = 1.0 / self.config.rate_limit
+                now = time.time()
+                elapsed = now - self._last_request_time
+                if elapsed < interval:
+                    sleep_time = interval - elapsed
+                    self._last_request_time = now + sleep_time
+                else:
+                    self._last_request_time = now
+            self._request_count += 1
+
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
     def _in_scope(self, url: str) -> bool:
-        import re
-        if self.config.scope_exclude:
-            if re.search(self.config.scope_exclude, url):
+        if self._scope_exclude_re:
+            if self._scope_exclude_re.search(url):
                 return False
-        if self.config.scope_include:
-            if not re.search(self.config.scope_include, url):
+        if self._scope_include_re:
+            if not self._scope_include_re.search(url):
                 return False
         return True
+
+    def _safe_read(self, resp: requests.Response) -> Optional[requests.Response]:
+        if resp is None:
+            return None
+
+        if resp.history:
+            final_host = urlparse(resp.url).netloc.split(":")[0]
+            target_host = urlparse(self.config.target).netloc.split(":")[0]
+            if _is_private_ip(final_host) and not _is_private_ip(target_host):
+                resp.close()
+                return None
+
+        if resp.headers.get("Content-Length"):
+            try:
+                if int(resp.headers["Content-Length"]) > MAX_RESPONSE_SIZE:
+                    resp.close()
+                    return None
+            except ValueError:
+                pass
+
+        try:
+            chunks = []
+            bytes_read = 0
+            for chunk in resp.iter_content(chunk_size=65536):
+                bytes_read += len(chunk)
+                if bytes_read > MAX_RESPONSE_SIZE:
+                    resp.close()
+                    return None
+                chunks.append(chunk)
+            resp._content = b"".join(chunks)
+        except Exception:
+            return None
+
+        return resp
 
     def get(self, url: str, **kwargs) -> Optional[requests.Response]:
         try:
             self._rate_limit()
             kwargs.setdefault("timeout", self.config.timeout)
             kwargs.setdefault("allow_redirects", self.config.follow_redirects)
-            return self.session.get(url, **kwargs)
+            kwargs.setdefault("stream", True)
+            resp = self.session.get(url, **kwargs)
+            return self._safe_read(resp)
         except requests.RequestException:
             return None
 
@@ -200,7 +355,9 @@ class ScanSession:
         try:
             self._rate_limit()
             kwargs.setdefault("timeout", self.config.timeout)
-            return self.session.post(url, **kwargs)
+            kwargs.setdefault("stream", True)
+            resp = self.session.post(url, **kwargs)
+            return self._safe_read(resp)
         except requests.RequestException:
             return None
 

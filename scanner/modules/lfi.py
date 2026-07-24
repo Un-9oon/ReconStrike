@@ -1,7 +1,7 @@
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from scanner.core import Finding, Severity, ScanSession
+from scanner.core import Finding, Severity, ScanSession, build_curl
 
 LFI_PAYLOADS = [
     ("../../../etc/passwd", r"root:[x*]:0:0:", "Linux", "/etc/passwd"),
@@ -20,15 +20,6 @@ PATH_TRAVERSAL_PARAMS = [
     "preview", "load", "read", "content", "download", "view",
 ]
 
-
-def _build_curl(method, url, headers=None, data=None):
-    cmd = f"curl -k -X {method} '{url}'"
-    if headers:
-        for k, v in headers.items():
-            cmd += f" -H '{k}: {v}'"
-    if data:
-        cmd += f" -d '{data}'"
-    return cmd
 
 
 def _get_traversal_technique(payload):
@@ -140,7 +131,7 @@ def _test_param(session: ScanSession, url: str, param: str, original: str):
                     payload=payload,
                     request_method="GET",
                     response_status=resp.status_code,
-                    curl_command=_build_curl("GET", test_url),
+                    curl_command=build_curl("GET", test_url),
                     reproduction_steps=(
                         f"1. Open the target URL: {url}\n"
                         f"2. Modify the '{param}' parameter value to: {payload}\n"

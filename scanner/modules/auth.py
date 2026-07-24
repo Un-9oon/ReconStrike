@@ -162,9 +162,8 @@ def _check_login_security(session: ScanSession):
 
 
 def _check_session_security(session: ScanSession):
-    resp = session.get(session.config.target)
-    if not resp:
-        return
+    from scanner.modules import session_security
+    session_security.run(session)
 
 
 def _check_password_policy(session: ScanSession):

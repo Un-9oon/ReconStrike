@@ -1,7 +1,7 @@
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from scanner.core import Finding, Severity, ScanSession
+from scanner.core import Finding, Severity, ScanSession, build_curl
 
 ID_PARAMS = [
     "id", "uid", "user_id", "userid", "account", "account_id",
@@ -30,9 +30,6 @@ PII_PATTERNS = [
     r'(?:balance|salary|income|credit|debit)\s*[:=]\s*[\d$]',
 ]
 
-
-def _build_curl(url):
-    return f"curl -k '{url}'"
 
 
 def _contains_pii(text: str) -> bool:
@@ -76,8 +73,8 @@ def _check_param_idor(session: ScanSession, url: str, param: str, original: str)
     if not _responses_differ_meaningfully(resp_original.text, resp.text):
         return
 
-    curl_original = _build_curl(url)
-    curl_test = _build_curl(test_url)
+    curl_original = build_curl(url)
+    curl_test = build_curl(test_url)
 
     if _contains_pii(resp.text) and not _contains_pii(resp_original.text):
         session.add_finding(Finding(

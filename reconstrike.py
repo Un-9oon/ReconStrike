@@ -21,6 +21,8 @@ from scanner.modules import (
     headers, ssl_check, sqli, xss, csrf, directory, info_disclosure,
     auth, misconfig, lfi, cmd_injection, ssti, ssrf, xxe, idor,
     jwt, file_upload, portscan, fingerprint, subdomain, cors,
+    session_security, cve_check, zero_day, nosql_injection,
+    subdomain_takeover, hpp, graphql, deserialization,
 )
 
 colorama_init()
@@ -35,7 +37,7 @@ BANNER = f"""
 {Fore.RED}██║  ██║███████╗╚██████╗╚██████╔╝██║ ╚████║{Fore.YELLOW}███████║   ██║   ██║  ██║██║██║  ██╗███████╗
 {Fore.RED}╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝{Fore.YELLOW}╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝{Style.RESET_ALL}
 {Fore.CYAN}    Advanced Web & Network Vulnerability Assessment Framework v{VERSION}{Style.RESET_ALL}
-{Fore.WHITE}    22 Scan Modules | OWASP Top 10 + PCI DSS | Zero False Positives{Style.RESET_ALL}
+{Fore.WHITE}    29 Scan Modules | OWASP Top 10 + PCI DSS | Zero False Positives{Style.RESET_ALL}
 {Fore.WHITE}    WAF Detection | API Security | Compliance Mapping | Scan Diffing{Style.RESET_ALL}
 {Fore.YELLOW}    ────────────────────────────────────────────────────────────────{Style.RESET_ALL}
 """
@@ -62,6 +64,14 @@ ALL_MODULES = {
     "auth": ("Authentication Security", auth),
     "misconfig": ("Security Misconfigurations", misconfig),
     "cors": ("CORS Misconfiguration", cors),
+    "session_security": ("Session Security & Cookie Hardening", session_security),
+    "cve_check": ("CVE Lookup & Vulnerability Correlation", cve_check),
+    "zero_day": ("Zero-Day Heuristics & Fuzzing", zero_day),
+    "nosql": ("NoSQL Injection", nosql_injection),
+    "subdomain_takeover": ("Subdomain Takeover", subdomain_takeover),
+    "hpp": ("HTTP Parameter Pollution", hpp),
+    "graphql": ("GraphQL Vulnerability Scanner", graphql),
+    "deserialization": ("Insecure Deserialization", deserialization),
 }
 
 SCAN_PROFILES = {
@@ -149,7 +159,7 @@ Examples:
     parser.add_argument("--rate-limit", type=float, default=0, help="Max requests per second (0 = unlimited)")
     parser.add_argument("--scope-include", help="Regex pattern for URLs to include in scope")
     parser.add_argument("--scope-exclude", help="Regex pattern for URLs to exclude from scope")
-    parser.add_argument("--no-ssl-verify", action="store_true", default=True, help="Skip SSL verification (default: true)")
+    parser.add_argument("--no-ssl-verify", action="store_true", default=False, help="Skip SSL certificate verification")
     parser.add_argument("--user-agent", default="ReconStrike/3.0 (Security Audit)", help="Custom User-Agent")
 
     parser.add_argument("--pdf", help="Generate professional PDF report (e.g., --pdf report.pdf)")
@@ -471,23 +481,28 @@ def main():
         print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
         print_summary(session)
 
+    from scanner.core import _sanitize_path
+
     if args.json_output or args.json_file:
         json_data = _build_json_output(session, duration, diff_data, compliance_data)
         if args.json_output:
             original_stdout.write(json.dumps(json_data, indent=2) + "\n")
             original_stdout.flush()
         if args.json_file:
-            with open(args.json_file, "w") as jf:
+            json_path = _sanitize_path(args.json_file)
+            with open(json_path, "w") as jf:
                 json.dump(json_data, jf, indent=2)
             if not args.quiet:
-                print(f"{Fore.GREEN}[+] JSON report saved to: {args.json_file}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}[+] JSON report saved to: {json_path}{Style.RESET_ALL}")
 
-    report_path = generate_html_report(session, args.output, compliance_data)
+    html_path = _sanitize_path(args.output)
+    report_path = generate_html_report(session, html_path, compliance_data)
     if not args.quiet:
         print(f"\n{Fore.GREEN}[+] HTML report saved to: {report_path}{Style.RESET_ALL}")
 
     if args.pdf:
-        pdf_path = generate_pdf_report(session, args.pdf, compliance_data)
+        pdf_out = _sanitize_path(args.pdf)
+        pdf_path = generate_pdf_report(session, pdf_out, compliance_data)
         if not args.quiet:
             print(f"{Fore.GREEN}[+] PDF report saved to: {pdf_path}{Style.RESET_ALL}")
 
